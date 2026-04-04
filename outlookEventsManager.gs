@@ -1,3 +1,4 @@
+const outlookCalendarId = 'YOUR_OUTLOOK_CALENDAR_ID';
 const clientId = 'YOUR_CLIENT_ID';
 const clientSecret = 'YOUR_CLIENT_SECRET';
 const tenantId = 'consumers'; // DO NOT CHANGE
@@ -196,6 +197,7 @@ function refreshAccessToken() {
  * @param {string} [eventOptions.location] 場所
  * @param {{email: string, name?: string, type?: string}[]} [eventOptions.attendees] 参加者
  * @param {string[]} [eventOptions.categories] カテゴリ
+ * @param {string} [eventOptions.calendarId] 作成先カレンダーID
  * @param {string} [eventOptions.showAs] 表示状態
  * @param {string} [eventOptions.sensitivity] 機密度
  * @param {string} [eventOptions.importance] 重要度
@@ -206,8 +208,13 @@ function refreshAccessToken() {
 function createEventToOutlook(eventOptions, accessToken) {
   var token = accessToken || refreshAccessToken();
 
-  var url = 'https://graph.microsoft.com/v1.0/me/events';
   var normalized = normalizeEventOptions(eventOptions);
+  var calendarId = normalized.calendarId || outlookCalendarId;
+  var url = calendarId
+    ? 'https://graph.microsoft.com/v1.0/me/calendars/' +
+      encodeURIComponent(calendarId) +
+      '/events'
+    : 'https://graph.microsoft.com/v1.0/me/events';
 
   var payload = {
     subject: normalized.subject,
@@ -452,7 +459,7 @@ function formatGraphUtcDateTime(date) {
 /**
  * createEventToOutlook 用に入力値を正規化する。
  * @param {Object} [eventOptions] 元のイベント設定
- * @returns {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} 正規化後の設定
+ * @returns {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], calendarId: string, showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} 正規化後の設定
  */
 function normalizeEventOptions(eventOptions) {
   var now = new Date();
@@ -482,6 +489,10 @@ function normalizeEventOptions(eventOptions) {
       eventOptions && Array.isArray(eventOptions.categories)
         ? eventOptions.categories
         : [],
+    calendarId:
+      eventOptions && eventOptions.calendarId
+        ? String(eventOptions.calendarId)
+        : '',
     showAs: eventOptions && eventOptions.showAs ? eventOptions.showAs : '',
     sensitivity:
       eventOptions && eventOptions.sensitivity ? eventOptions.sensitivity : '',
