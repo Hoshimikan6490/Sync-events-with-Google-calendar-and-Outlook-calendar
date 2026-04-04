@@ -1,6 +1,19 @@
 # outlookカレンダーにGASからイベントを登録する方法
 ## 概要
-まータイトルの通りです。
+Google Calendar と Outlook Calendar の 1 か月分同期用の Google Apps Script を含む。
+
+現在の同期は次の順で動作する。
+
+1. Outlook の ICS を取得して Google Calendar に反映する
+2. Google Calendar の中で Outlook 由来ではないイベントを Outlook に作成する
+
+主な実行関数は以下の 3 つ。
+
+- `syncOutlookToGoogle()`
+- `syncGoogleToOutlook()`
+- `syncMonthlyCalendars()`
+
+Outlook から取り込んだイベントは Google 側で `outlook_id` を持つため、Google → Outlook の再作成対象から除外される。
 
 ## 注意事項
 - あんまり回数が多いとレートリミットに引っかかるので、程よい頻度で
