@@ -55,3 +55,11 @@ createEventToOutlook({
 3. すぐ下の「Modify Permissions」をクリックし、「Calendars.Read」の横にある「Consent」をクリックして権限を許可する。
 4. 2で入力したリクエストURLの右にある「▷Run query」をクリックし、下に緑色で「OK - 200 - xxxms」などと表示されれば、OK。さらに下の「Response preview」に自分のカレンダーの一覧が出るので、nameパラメータから、予定を管理したいカレンダー(基本的にはICSのURLを作成したカレンダー)のidパラメータの内容をメモする。
 ### [ステップ4] Google Apps Scriptの準備
+1. Google スプレッドシートを 1 つ新規作成し、そのスプレッドシートに紐づく形で Google Apps Script を開く。
+2. このリポジトリの `code.gs`、`googleEventsManager.gs`、`outlookEventsManager.gs` の内容を、GAS プロジェクトにそれぞれコピーする。
+3. `outlookEventsManager.gs` を開き、`outlookCalendarId`、`clientId`、`clientSecret`、`authCode` を自分の値に置き換える。`tenantId`、`redirectUri`、`tokenUrl` はそのままでよい。
+4. `code.gs` の `getICSUrl()` はスプレッドシートのアクティブシート A1 を見にいくので、ステップ2でメモした ICS URL を A1 に貼り付ける。
+5. まず `setup()` を実行して、ログに出力された認可 URL を開く。
+6. Microsoft アカウントでサインインし、表示されたリダイレクト先 URL の `code=` の値を `outlookEventsManager.gs` の `authCode` に貼り付ける。
+7. `authCallback()` を実行して「スクリプトトークン」に保存する。
+8. 以後は `syncMonthlyCalendars()` を実行すれば、Outlook -> Google -> Outlook の順で 1 か月分の同期ができる。
