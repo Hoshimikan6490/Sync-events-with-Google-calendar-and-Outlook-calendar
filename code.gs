@@ -1,3 +1,5 @@
+const MANAGED_OUTLOOK_SUBJECT_PREFIX = '[研究室] ';
+
 /**
  * Outlook の ICS を Google Calendar に同期する。
  * 対象期間は「前日から 1 か月後まで」。
@@ -11,7 +13,7 @@ function syncOutlookToGoogle() {
     parseICS(icsText),
     range.start,
     range.end,
-  );
+  ).filter((event) => !hasManagedOutlookSubjectPrefix(event.title));
 
   const calendar = CalendarApp.getDefaultCalendar();
   const existingEvents = calendar.getEvents(range.start, range.end);
@@ -57,8 +59,10 @@ function syncGoogleToOutlook() {
   let skipped = 0;
 
   candidates.forEach((event) => {
-    const googleEventId = event.getId();
-    if (existingGoogleIds[googleEventId]) {
+    const googleEventId = toCanonicalGoogleEventId(event.getId());
+    const matched = Boolean(existingGoogleIds[googleEventId]);
+
+    if (matched) {
       skipped += 1;
       return;
     }
@@ -136,4 +140,17 @@ function getICSUrl() {
     console.error('ICS URL取得中にエラーが発生しました:', error);
     throw error;
   }
+}
+
+/**
+ * 件名が管理用プレフィックス付きか判定する。
+ * @param {string} title 件名
+ * @returns {boolean} 管理用プレフィックス付きなら true
+ */
+function hasManagedOutlookSubjectPrefix(title) {
+  if (!title) {
+    return false;
+  }
+
+  return String(title).indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) === 0;
 }

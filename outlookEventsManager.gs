@@ -314,8 +314,14 @@ function createEventToOutlook(eventOptions, accessToken) {
  */
 function listOutlookEventsInRange(rangeStart, rangeEnd) {
   var token = refreshAccessToken();
+  var targetCalendarId =
+    typeof outlookCalendarId === 'string' ? outlookCalendarId : '';
+  var calendarPath = targetCalendarId
+    ? '/me/calendars/' + encodeURIComponent(targetCalendarId) + '/calendarView'
+    : '/me/calendarView';
   var url =
-    'https://graph.microsoft.com/v1.0/me/calendarView' +
+    'https://graph.microsoft.com/v1.0' +
+    calendarPath +
     '?startDateTime=' +
     encodeURIComponent(formatGraphUtcDateTime(rangeStart)) +
     '&endDateTime=' +
@@ -360,12 +366,86 @@ function buildOutlookGoogleIdSet(outlookEvents) {
  * @returns {string|null} Google イベント ID
  */
 function extractGoogleEventIdFromOutlookEvent(outlookEvent) {
-  var content = outlookEvent && outlookEvent.body && outlookEvent.body.content;
+  var bodyContent =
+    outlookEvent && outlookEvent.body && outlookEvent.body.content
+      ? String(outlookEvent.body.content)
+      : '';
+
+  var match = findGoogleIdMarker(bodyContent);
+  return match ? match : null;
+}
+
+/**
+ * Outlook 本文(HTML/テキスト)から google_id マーカーを抽出する。
+ * @param {string} content 本文
+ * @returns {string|null} Google イベント ID
+ */
+function findGoogleIdMarker(content) {
   if (!content) {
     return null;
   }
 
-  var match = String(content).match(/(?:^|\n)google_id:([^\n\r]+)/);
+  var normalized = String(content)
+    .replace(/<br\s*\/?\s*>/gi, '\n')
+    .replace(/<\/(?:div|p|li|tr|h[1-6])>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\r/g, '');
+
+  var match = normalized.match(/google_id:([^\s<]+@google\.com)\b/i);
+  var googleEventId = match ? match[1].trim() : null;
+
+  return googleEventId;
+}
+
+/**
+ * Google イベント ID を google.com サフィックス付きへ正規化する。
+ * @param {string} googleEventId Google イベント ID
+ * @returns {string} google_id 用の統一ID
+ */
+function toCanonicalGoogleEventId(googleEventId) {
+  var id = String(googleEventId || '').trim();
+  if (!id) {
+    return id;
+  }
+
+  return /@google\.com$/i.test(id) ? id : id + '@google.com';
+}
+
+/**
+ * Outlook 由来の Google イベント ID を集める。
+ * @param {GoogleAppsScript.Calendar.CalendarEvent[]} googleEvents Google Calendar イベント一覧
+ * @returns {Object.<string, boolean>} Outlook イベント ID -> true
+ */
+function buildGoogleOutlookIdSet(googleEvents) {
+  var set = {};
+
+  googleEvents.forEach(function (event) {
+    var outlookEventId = extractOutlookEventIdFromGoogleEvent(event);
+    if (outlookEventId) {
+      set[outlookEventId] = true;
+    }
+  });
+
+  return set;
+}
+
+/**
+ * Google Calendar イベントの description から Outlook イベント ID を取り出す。
+ * @param {GoogleAppsScript.Calendar.CalendarEvent} googleEvent Google Calendar イベント
+ * @returns {string|null} Outlook イベント ID
+ */
+function extractOutlookEventIdFromGoogleEvent(googleEvent) {
+  var description =
+    googleEvent && googleEvent.getDescription
+      ? googleEvent.getDescription()
+      : '';
+  if (!description) {
+    return null;
+  }
+
+  var match = String(description).match(/(?:^|\n)outlook_id:([^\n\r]+)/);
   return match ? match[1].trim() : null;
 }
 
@@ -386,10 +466,10 @@ function convertGoogleEventToOutlookOptions(event) {
   var description = event.getDescription() || '';
   var bodyContent = description ? description + '\n\n' : '';
 
-  bodyContent += 'google_id:' + event.getId();
+  bodyContent += 'google_id:' + toCanonicalGoogleEventId(event.getId());
 
   return {
-    subject: event.getTitle(),
+    subject: ensureManagedOutlookSubjectPrefix(event.getTitle()),
     start: start,
     end: end,
     timeZone: timeZone,
@@ -401,6 +481,25 @@ function convertGoogleEventToOutlookOptions(event) {
     location: event.getLocation() || '',
     showAs: mapGoogleTransparencyToOutlookShowAs(event.getTransparency()),
   };
+}
+
+/**
+ * 管理用プレフィックスが未付与なら件名先頭に付与する。
+ * @param {string} title 元の件名
+ * @returns {string} プレフィックス付与後の件名
+ */
+function ensureManagedOutlookSubjectPrefix(title) {
+  var normalizedTitle = title ? String(title) : '(無題)';
+
+  if (
+    typeof MANAGED_OUTLOOK_SUBJECT_PREFIX === 'string' &&
+    MANAGED_OUTLOOK_SUBJECT_PREFIX.length > 0 &&
+    normalizedTitle.indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) !== 0
+  ) {
+    return MANAGED_OUTLOOK_SUBJECT_PREFIX + normalizedTitle;
+  }
+
+  return normalizedTitle;
 }
 
 /**
