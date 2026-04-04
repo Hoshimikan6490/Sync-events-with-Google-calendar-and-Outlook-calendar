@@ -1,9 +1,12 @@
 const OUTLOOK_CONFIG = {
+  // 置き換えが必要: Outlook カレンダー ID
   calendarId: 'YOUR_OUTLOOK_CALENDAR_ID',
+  // 置き換えが必要: Microsoft アプリの client ID
   clientId: 'YOUR_CLIENT_ID',
   tenantId: 'consumers', // DO NOT CHANGE
   redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient', // DO NOT CHANGE
-  authCode: 'YOUR_ACCESS_CODE', // write CODE using setup function
+  // 置き換えが必要: setup() で取得した認可コード
+  authCode: 'YOUR_ACCESS_CODE',
 };
 const OUTLOOK_AUTH_BASE_URL = 'https://login.microsoftonline.com';
 const OUTLOOK_GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
