@@ -57,9 +57,9 @@ createEventToOutlook({
 ### [ステップ4] Google Apps Scriptの準備
 1. Google スプレッドシートを 1 つ新規作成し、そのスプレッドシートに紐づく形で Google Apps Script を開く。
 2. このリポジトリの `code.gs`、`googleEventsManager.gs`、`outlookEventsManager.gs` の内容を、GAS プロジェクトにそれぞれコピーする。
-3. `outlookEventsManager.gs` を開き、`OUTLOOK_CONFIG.calendarId`、`OUTLOOK_CONFIG.clientId`、`OUTLOOK_CONFIG.authCode` を自分の値に置き換える。`tenantId` と `redirectUri` はそのままでよい。
-4. `code.gs` の `getICSUrl()` はスプレッドシートのアクティブシート A1 を見にいくので、ステップ2でメモした ICS URL を A1 に貼り付ける。
+3. `outlookEventsManager.gs` を開き、`OUTLOOK_CONFIG.calendarId`、`OUTLOOK_CONFIG.clientId` を自分の値に置き換える。他はそのままでよい。
+4. `code.gs` の `getICSUrl()` はスプレッドシートのアクティブシート A1 を見にいくので、ステップ2でメモした ICS URL をスプレッドシートの A1 に貼り付ける。
 5. まず `setup()` を実行して、ログに出力された認可 URL を開く。
-6. Microsoft アカウントでサインインし、表示されたリダイレクト先 URL の `code=` の値を `outlookEventsManager.gs` の `OUTLOOK_CONFIG.authCode` に貼り付ける。
-7. `authCallback()` を実行して「スクリプトトークン」に保存する。
+6. Microsoft アカウントでサインインし、表示されたリダイレクト先 URL の `code=` 以降の値を `outlookEventsManager.gs` の `OUTLOOK_CONFIG.authCode` に貼り付ける。恐らくフルスクリーンでも4行ぐらいある長文文字列のはず。
+7. `authCallback()` を実行してリフレッシュトークンを含めた認証情報を「スクリプトトークン」に保存する。
 8. 以後は `syncMonthlyCalendars()` を実行すれば、Outlook -> Google -> Outlook の順で 1 か月分の同期ができる。
