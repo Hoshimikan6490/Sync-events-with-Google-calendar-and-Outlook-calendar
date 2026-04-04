@@ -1,4 +1,5 @@
 const MANAGED_OUTLOOK_SUBJECT_PREFIX = '[研究室] ';
+const ONE_DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
 
 /**
  * Outlook の ICS を Google Calendar に同期する。
@@ -104,7 +105,7 @@ function syncMonthlyCalendars() {
 function getSyncRange() {
   const now = new Date();
   return {
-    start: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+    start: new Date(now.getTime() - ONE_DAY_IN_MILLISECONDS),
     end: addMonths(now, 1),
   };
 }
@@ -126,20 +127,14 @@ function addMonths(date, months) {
  * @returns {string} Outlook ICS URL
  */
 function getICSUrl() {
-  try {
-    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = spreadsheet.getActiveSheet();
-    const webhookUrl = sheet.getRange(1, 1).getValue();
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const icsUrl = String(sheet.getRange('A1').getValue() || '').trim();
 
-    if (!webhookUrl) {
-      throw new Error('セルA1にICS URLが見つかりません');
-    }
-
-    return webhookUrl;
-  } catch (error) {
-    console.error('ICS URL取得中にエラーが発生しました:', error);
-    throw error;
+  if (!icsUrl) {
+    throw new Error('セルA1にICS URLが見つかりません');
   }
+
+  return icsUrl;
 }
 
 /**
@@ -148,9 +143,5 @@ function getICSUrl() {
  * @returns {boolean} 管理用プレフィックス付きなら true
  */
 function hasManagedOutlookSubjectPrefix(title) {
-  if (!title) {
-    return false;
-  }
-
-  return String(title).indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) === 0;
+  return String(title || '').indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) === 0;
 }

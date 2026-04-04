@@ -1,39 +1,68 @@
-const outlookCalendarId = 'YOUR_OUTLOOK_CALENDAR_ID';
-const clientId = 'YOUR_CLIENT_ID';
-const clientSecret = 'YOUR_CLIENT_SECRET';
-const tenantId = 'consumers'; // DO NOT CHANGE
-const redirectUri =
-  'https://login.microsoftonline.com/common/oauth2/nativeclient'; // DO NOT CHANGE
-const tokenUrl =
-  'https://login.microsoftonline.com/' + tenantId + '/oauth2/v2.0/token'; // DO NOT CHANGE
-const authCode = 'YOUR_ACCESS_CODE'; //write CODE using setup function
+const OUTLOOK_CONFIG = {
+  calendarId: 'YOUR_OUTLOOK_CALENDAR_ID',
+  clientId: 'YOUR_CLIENT_ID',
+  tenantId: 'consumers', // DO NOT CHANGE
+  redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient', // DO NOT CHANGE
+  authCode: 'YOUR_ACCESS_CODE', // write CODE using setup function
+};
+const OUTLOOK_AUTH_BASE_URL = 'https://login.microsoftonline.com';
+const OUTLOOK_GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
+const OUTLOOK_GRAPH_SCOPE =
+  'offline_access https://graph.microsoft.com/Calendars.ReadWrite';
+const OUTLOOK_PROPERTY_KEYS = {
+  codeVerifier: 'oauth_code_verifier',
+  refreshToken: 'refresh_token',
+  accessToken: 'access_token',
+};
+const OUTLOOK_DESCRIPTION_MARKER = /(?:^|\n)outlook_id:([^\n\r]+)/;
+const GOOGLE_ID_MARKER = /google_id:([^\s<]+@google\.com)\b/i;
+
+function getOutlookCalendarId() {
+  return OUTLOOK_CONFIG.calendarId;
+}
+
+function getOutlookAuthTokenUrl() {
+  return (
+    OUTLOOK_AUTH_BASE_URL + '/' + OUTLOOK_CONFIG.tenantId + '/oauth2/v2.0/token'
+  );
+}
+
+function getOutlookAuthAuthorizeUrl() {
+  return (
+    OUTLOOK_AUTH_BASE_URL +
+    '/' +
+    OUTLOOK_CONFIG.tenantId +
+    '/oauth2/v2.0/authorize'
+  );
+}
+
+function getScriptPropertyValue(key) {
+  return PropertiesService.getScriptProperties().getProperty(key);
+}
+
+function setScriptPropertyValue(key, value) {
+  PropertiesService.getScriptProperties().setProperty(key, value);
+}
 
 /**
  * OAuth 認可 URL を生成し、PKCE 用の code_verifier を保存する。
  * @returns {void}
  */
 function setup() {
-  var codeVerifier = generateCodeVerifier();
-  var codeChallenge = generateCodeChallenge(codeVerifier);
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = generateCodeChallenge(codeVerifier);
 
-  PropertiesService.getScriptProperties().setProperty(
-    'oauth_code_verifier',
-    codeVerifier,
-  );
+  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.codeVerifier, codeVerifier);
 
-  var url =
-    'https://login.microsoftonline.com/' +
-    tenantId +
-    '/oauth2/v2.0/authorize' +
+  const url =
+    getOutlookAuthAuthorizeUrl() +
     '?client_id=' +
-    clientId +
+    OUTLOOK_CONFIG.clientId +
     '&response_type=code' +
     '&redirect_uri=' +
-    encodeURIComponent(redirectUri) +
+    encodeURIComponent(OUTLOOK_CONFIG.redirectUri) +
     '&scope=' +
-    encodeURIComponent(
-      'offline_access https://graph.microsoft.com/Calendars.ReadWrite',
-    ) +
+    encodeURIComponent(OUTLOOK_GRAPH_SCOPE) +
     '&response_mode=query' +
     '&code_challenge=' +
     encodeURIComponent(codeChallenge) +
@@ -48,8 +77,8 @@ function setup() {
  * @returns {void}
  */
 function authCallback() {
-  var codeVerifier = PropertiesService.getScriptProperties().getProperty(
-    'oauth_code_verifier',
+  const codeVerifier = getScriptPropertyValue(
+    OUTLOOK_PROPERTY_KEYS.codeVerifier,
   );
 
   if (!codeVerifier) {
@@ -58,44 +87,41 @@ function authCallback() {
     );
   }
 
-  var payload = {
-    client_id: clientId,
-    code: authCode,
-    redirect_uri: redirectUri,
+  const payload = {
+    client_id: OUTLOOK_CONFIG.clientId,
+    code: OUTLOOK_CONFIG.authCode,
+    redirect_uri: OUTLOOK_CONFIG.redirectUri,
     grant_type: 'authorization_code',
     code_verifier: codeVerifier,
   };
 
-  var options = {
+  const options = {
     method: 'post',
     payload: payload,
     muteHttpExceptions: true,
   };
 
-  var res = UrlFetchApp.fetch(tokenUrl, options);
-  var body = res.getContentText();
-  var status = res.getResponseCode();
+  const res = UrlFetchApp.fetch(getOutlookAuthTokenUrl(), options);
+  const body = res.getContentText();
+  const status = res.getResponseCode();
 
   if (status >= 400) {
     throw new Error('Token exchange failed (' + status + '): ' + body);
   }
 
-  var data = JSON.parse(body);
+  const data = JSON.parse(body);
 
   Logger.log(data);
 
   // refresh_token は毎回返るとは限らないため、存在時のみ更新する。
   if (data.refresh_token) {
-    PropertiesService.getScriptProperties().setProperty(
-      'refresh_token',
+    setScriptPropertyValue(
+      OUTLOOK_PROPERTY_KEYS.refreshToken,
       data.refresh_token,
     );
   }
 
-  PropertiesService.getScriptProperties().setProperty(
-    'access_token',
-    data.access_token,
-  );
+  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 }
 
 /**
@@ -103,7 +129,7 @@ function authCallback() {
  * @returns {string} 64 文字の code_verifier
  */
 function generateCodeVerifier() {
-  var bytes =
+  const bytes =
     Utilities.getUuid().replace(/-/g, '') +
     Utilities.getUuid().replace(/-/g, '');
   return bytes.slice(0, 64);
@@ -115,7 +141,7 @@ function generateCodeVerifier() {
  * @returns {string} base64url 形式の code_challenge
  */
 function generateCodeChallenge(codeVerifier) {
-  var digest = Utilities.computeDigest(
+  const digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     codeVerifier,
     Utilities.Charset.UTF_8,
@@ -135,10 +161,11 @@ function base64UrlEncode(bytes) {
  * @returns {string} 更新後の access_token
  */
 function refreshAccessToken() {
-  var url = 'https://login.microsoftonline.com/consumers/oauth2/v2.0/token';
+  const url = getOutlookAuthTokenUrl();
 
-  var refreshToken =
-    PropertiesService.getScriptProperties().getProperty('refresh_token');
+  const refreshToken = getScriptPropertyValue(
+    OUTLOOK_PROPERTY_KEYS.refreshToken,
+  );
 
   if (!refreshToken) {
     throw new Error(
@@ -146,37 +173,34 @@ function refreshAccessToken() {
     );
   }
 
-  var payload = {
-    client_id: clientId,
+  const payload = {
+    client_id: OUTLOOK_CONFIG.clientId,
     refresh_token: refreshToken,
     grant_type: 'refresh_token',
   };
 
-  var options = {
+  const options = {
     method: 'post',
     payload: payload,
     muteHttpExceptions: true,
   };
 
-  var res = UrlFetchApp.fetch(url, options);
-  var body = res.getContentText();
-  var status = res.getResponseCode();
+  const res = UrlFetchApp.fetch(url, options);
+  const body = res.getContentText();
+  const status = res.getResponseCode();
 
   if (status >= 400) {
     throw new Error('Refresh token failed (' + status + '): ' + body);
   }
 
-  var data = JSON.parse(body);
+  const data = JSON.parse(body);
 
   // トークン更新保存
-  PropertiesService.getScriptProperties().setProperty(
-    'access_token',
-    data.access_token,
-  );
+  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 
   if (data.refresh_token) {
-    PropertiesService.getScriptProperties().setProperty(
-      'refresh_token',
+    setScriptPropertyValue(
+      OUTLOOK_PROPERTY_KEYS.refreshToken,
       data.refresh_token,
     );
   }
@@ -206,17 +230,18 @@ function refreshAccessToken() {
  * @returns {Object} Microsoft Graph の作成結果
  */
 function createEventToOutlook(eventOptions, accessToken) {
-  var token = accessToken || refreshAccessToken();
+  const token = accessToken || refreshAccessToken();
 
-  var normalized = normalizeEventOptions(eventOptions);
-  var calendarId = normalized.calendarId || outlookCalendarId;
-  var url = calendarId
-    ? 'https://graph.microsoft.com/v1.0/me/calendars/' +
+  const normalized = normalizeEventOptions(eventOptions);
+  const calendarId = normalized.calendarId || getOutlookCalendarId();
+  const url = calendarId
+    ? OUTLOOK_GRAPH_BASE_URL +
+      '/me/calendars/' +
       encodeURIComponent(calendarId) +
       '/events'
-    : 'https://graph.microsoft.com/v1.0/me/events';
+    : OUTLOOK_GRAPH_BASE_URL + '/me/events';
 
-  var payload = {
+  const payload = {
     subject: normalized.subject,
     start: {
       dateTime: formatGraphDateTime(normalized.start, normalized.timeZone),
@@ -281,7 +306,7 @@ function createEventToOutlook(eventOptions, accessToken) {
     payload.reminderMinutesBeforeStart = normalized.reminderMinutesBeforeStart;
   }
 
-  var requestOptions = {
+  const requestOptions = {
     method: 'post',
     contentType: 'application/json',
     headers: {
@@ -291,8 +316,8 @@ function createEventToOutlook(eventOptions, accessToken) {
     muteHttpExceptions: true,
   };
 
-  var response = UrlFetchApp.fetch(url, requestOptions);
-  var responseBody = response.getContentText();
+  const response = UrlFetchApp.fetch(url, requestOptions);
+  const responseBody = response.getContentText();
 
   if (response.getResponseCode() >= 400) {
     throw new Error(
@@ -313,14 +338,13 @@ function createEventToOutlook(eventOptions, accessToken) {
  * @returns {Object[]} Outlook イベント一覧
  */
 function listOutlookEventsInRange(rangeStart, rangeEnd) {
-  var token = refreshAccessToken();
-  var targetCalendarId =
-    typeof outlookCalendarId === 'string' ? outlookCalendarId : '';
-  var calendarPath = targetCalendarId
+  const token = refreshAccessToken();
+  const targetCalendarId = getOutlookCalendarId();
+  const calendarPath = targetCalendarId
     ? '/me/calendars/' + encodeURIComponent(targetCalendarId) + '/calendarView'
     : '/me/calendarView';
-  var url =
-    'https://graph.microsoft.com/v1.0' +
+  let url =
+    OUTLOOK_GRAPH_BASE_URL +
     calendarPath +
     '?startDateTime=' +
     encodeURIComponent(formatGraphUtcDateTime(rangeStart)) +
@@ -328,10 +352,10 @@ function listOutlookEventsInRange(rangeStart, rangeEnd) {
     encodeURIComponent(formatGraphUtcDateTime(rangeEnd)) +
     '&$select=id,subject,start,end,isAllDay,body,location,showAs';
 
-  var events = [];
+  let events = [];
 
   while (url) {
-    var response = fetchGraphJson(url, token);
+    const response = fetchGraphJson(url, token);
     if (response.value && response.value.length > 0) {
       events = events.concat(response.value);
     }
@@ -348,10 +372,10 @@ function listOutlookEventsInRange(rangeStart, rangeEnd) {
  * @returns {Object.<string, boolean>} Google イベント ID -> true
  */
 function buildOutlookGoogleIdSet(outlookEvents) {
-  var set = {};
+  const set = Object.create(null);
 
   outlookEvents.forEach(function (event) {
-    var googleEventId = extractGoogleEventIdFromOutlookEvent(event);
+    const googleEventId = extractGoogleEventIdFromOutlookEvent(event);
     if (googleEventId) {
       set[googleEventId] = true;
     }
@@ -366,12 +390,12 @@ function buildOutlookGoogleIdSet(outlookEvents) {
  * @returns {string|null} Google イベント ID
  */
 function extractGoogleEventIdFromOutlookEvent(outlookEvent) {
-  var bodyContent =
+  const bodyContent =
     outlookEvent && outlookEvent.body && outlookEvent.body.content
       ? String(outlookEvent.body.content)
       : '';
 
-  var match = findGoogleIdMarker(bodyContent);
+  const match = findGoogleIdMarker(bodyContent);
   return match ? match : null;
 }
 
@@ -385,7 +409,7 @@ function findGoogleIdMarker(content) {
     return null;
   }
 
-  var normalized = String(content)
+  const normalized = String(content)
     .replace(/<br\s*\/?\s*>/gi, '\n')
     .replace(/<\/(?:div|p|li|tr|h[1-6])>/gi, '\n')
     .replace(/<[^>]+>/g, ' ')
@@ -393,8 +417,8 @@ function findGoogleIdMarker(content) {
     .replace(/&amp;/gi, '&')
     .replace(/\r/g, '');
 
-  var match = normalized.match(/google_id:([^\s<]+@google\.com)\b/i);
-  var googleEventId = match ? match[1].trim() : null;
+  const match = normalized.match(GOOGLE_ID_MARKER);
+  const googleEventId = match ? match[1].trim() : null;
 
   return googleEventId;
 }
@@ -405,7 +429,7 @@ function findGoogleIdMarker(content) {
  * @returns {string} google_id 用の統一ID
  */
 function toCanonicalGoogleEventId(googleEventId) {
-  var id = String(googleEventId || '').trim();
+  const id = String(googleEventId || '').trim();
   if (!id) {
     return id;
   }
@@ -419,10 +443,10 @@ function toCanonicalGoogleEventId(googleEventId) {
  * @returns {Object.<string, boolean>} Outlook イベント ID -> true
  */
 function buildGoogleOutlookIdSet(googleEvents) {
-  var set = {};
+  const set = {};
 
   googleEvents.forEach(function (event) {
-    var outlookEventId = extractOutlookEventIdFromGoogleEvent(event);
+    const outlookEventId = extractOutlookEventIdFromGoogleEvent(event);
     if (outlookEventId) {
       set[outlookEventId] = true;
     }
@@ -437,7 +461,7 @@ function buildGoogleOutlookIdSet(googleEvents) {
  * @returns {string|null} Outlook イベント ID
  */
 function extractOutlookEventIdFromGoogleEvent(googleEvent) {
-  var description =
+  const description =
     googleEvent && googleEvent.getDescription
       ? googleEvent.getDescription()
       : '';
@@ -445,7 +469,7 @@ function extractOutlookEventIdFromGoogleEvent(googleEvent) {
     return null;
   }
 
-  var match = String(description).match(/(?:^|\n)outlook_id:([^\n\r]+)/);
+  const match = String(description).match(OUTLOOK_DESCRIPTION_MARKER);
   return match ? match[1].trim() : null;
 }
 
@@ -455,16 +479,16 @@ function extractOutlookEventIdFromGoogleEvent(googleEvent) {
  * @returns {Object} createEventToOutlook 用のオプション
  */
 function convertGoogleEventToOutlookOptions(event) {
-  var calendar = CalendarApp.getDefaultCalendar();
-  var timeZone =
+  const calendar = CalendarApp.getDefaultCalendar();
+  const timeZone =
     typeof calendar.getTimeZone === 'function'
       ? calendar.getTimeZone()
       : Session.getScriptTimeZone();
-  var isAllDay = event.isAllDayEvent();
-  var start = isAllDay ? event.getAllDayStartDate() : event.getStartTime();
-  var end = isAllDay ? event.getAllDayEndDate() : event.getEndTime();
-  var description = event.getDescription() || '';
-  var bodyContent = description ? description + '\n\n' : '';
+  const isAllDay = event.isAllDayEvent();
+  const start = isAllDay ? event.getAllDayStartDate() : event.getStartTime();
+  const end = isAllDay ? event.getAllDayEndDate() : event.getEndTime();
+  const description = event.getDescription() || '';
+  let bodyContent = description ? description + '\n\n' : '';
 
   bodyContent += 'google_id:' + toCanonicalGoogleEventId(event.getId());
 
@@ -489,7 +513,7 @@ function convertGoogleEventToOutlookOptions(event) {
  * @returns {string} プレフィックス付与後の件名
  */
 function ensureManagedOutlookSubjectPrefix(title) {
-  var normalizedTitle = title ? String(title) : '(無題)';
+  const normalizedTitle = title ? String(title) : '(無題)';
 
   if (
     typeof MANAGED_OUTLOOK_SUBJECT_PREFIX === 'string' &&
@@ -522,7 +546,7 @@ function mapGoogleTransparencyToOutlookShowAs(transparency) {
  * @returns {Object} 解析済みレスポンス
  */
 function fetchGraphJson(url, token) {
-  var response = UrlFetchApp.fetch(url, {
+  const response = UrlFetchApp.fetch(url, {
     method: 'get',
     headers: {
       Authorization: 'Bearer ' + token,
@@ -530,7 +554,7 @@ function fetchGraphJson(url, token) {
     muteHttpExceptions: true,
   });
 
-  var body = response.getContentText();
+  const body = response.getContentText();
   if (response.getResponseCode() >= 400) {
     throw new Error(
       'Graph request failed (' + response.getResponseCode() + '): ' + body,
@@ -561,10 +585,10 @@ function formatGraphUtcDateTime(date) {
  * @returns {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], calendarId: string, showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} 正規化後の設定
  */
 function normalizeEventOptions(eventOptions) {
-  var now = new Date();
-  var start =
+  const now = new Date();
+  const start =
     eventOptions && eventOptions.start ? new Date(eventOptions.start) : now;
-  var end =
+  const end =
     eventOptions && eventOptions.end
       ? new Date(eventOptions.end)
       : new Date(start.getTime() + 60 * 60 * 1000);
@@ -636,7 +660,7 @@ function cleanPayload(value) {
   }
 
   if (value && typeof value === 'object') {
-    var cleaned = {};
+    const cleaned = {};
     Object.keys(value).forEach(function (key) {
       if (
         value[key] !== undefined &&
