@@ -1,5 +1,179 @@
 /**
+ * RRULE 文字列を解析して RRULE オブジェクトに変換する。
+ * 例: "FREQ=WEEKLY;UNTIL=20260331T083000Z;INTERVAL=1;BYDAY=TU;WKST=SU"
+ * @param {string} rruleString RRULE 文字列
+ * @returns {{freq: string, until: Date|null, interval: number, byDay: string[], count: number|null}} RRULE オブジェクト
+ */
+function parseRRULE(rruleString) {
+  const rrule = {
+    freq: 'DAILY',
+    until: null,
+    interval: 1,
+    byDay: [],
+    count: null,
+  };
+
+  if (!rruleString) {
+    return rrule;
+  }
+
+  const pairs = rruleString.split(';');
+  pairs.forEach((pair) => {
+    const [key, value] = pair.split('=');
+    if (!key || !value) return;
+
+    switch (key.toUpperCase()) {
+      case 'FREQ':
+        rrule.freq = value.toUpperCase();
+        break;
+      case 'UNTIL':
+        const untilDate = parseICSDateValue(value, {});
+        if (untilDate) {
+          rrule.until = untilDate.date;
+        }
+        break;
+      case 'INTERVAL':
+        rrule.interval = parseInt(value, 10) || 1;
+        break;
+      case 'BYDAY':
+        rrule.byDay = value.split(',').map((d) => d.trim());
+        break;
+      case 'COUNT':
+        rrule.count = parseInt(value, 10) || null;
+        break;
+    }
+  });
+
+  return rrule;
+}
+
+/**
+ * RRULE に基づいて繰り返しイベントを個別イベントに展開する。
+ * @param {{uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}} baseEvent ベースイベント
+ * @param {string} rruleString RRULE 文字列
+ * @returns {{uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}[]} 展開されたイベント配列
+ */
+function expandRecurringEvent(baseEvent, rruleString) {
+  const rrule = parseRRULE(rruleString);
+  const expanded = [];
+  const instances = getRecurrenceInstances(baseEvent.start, rrule);
+  const duration = baseEvent.end.getTime() - baseEvent.start.getTime();
+
+  instances.forEach((startTime, index) => {
+    const eventStart = new Date(startTime);
+    const eventEnd = new Date(eventStart.getTime() + duration);
+
+    expanded.push({
+      uid: baseEvent.uid + '-' + index,
+      title: baseEvent.title,
+      start: eventStart,
+      end: eventEnd,
+      isAllDay: baseEvent.isAllDay,
+      transparency: baseEvent.transparency,
+      visibility: baseEvent.visibility,
+    });
+  });
+
+  return expanded;
+}
+
+/**
+ * RRULE に基づいて、イベント発生日時の配列を返す。
+ * @param {Date} startDate ベースの開始日時
+ * @param {{freq: string, until: Date|null, interval: number, byDay: string[], count: number|null}} rrule RRULE オブジェクト
+ * @returns {Date[]} 発生日時の配列
+ */
+function getRecurrenceInstances(startDate, rrule) {
+  const instances = [];
+  const maxCount = rrule.count || 1000; // 無制限の場合は最大 1000 件
+  const until = rrule.until || new Date('2099-12-31');
+
+  if (rrule.freq === 'WEEKLY' && rrule.byDay.length > 0) {
+    // WEEKLY + BYDAY の場合は効率的に処理
+    let current = new Date(startDate);
+
+    // 最初の対象曜日を探す
+    while (!isTargetWeekday(current, rrule.byDay) && current <= until) {
+      current = addDays(current, 1);
+    }
+
+    // 対象曜日のみ追加
+    while (current <= until && instances.length < maxCount) {
+      instances.push(new Date(current));
+      current = addDays(current, 7 * rrule.interval);
+    }
+  } else {
+    // その他の場合
+    let current = new Date(startDate);
+    let count = 0;
+
+    while (current <= until && count < maxCount) {
+      instances.push(new Date(current));
+      count++;
+
+      switch (rrule.freq) {
+        case 'DAILY':
+          current = addDays(current, rrule.interval);
+          break;
+        case 'WEEKLY':
+          current = addDays(current, 7 * rrule.interval);
+          break;
+        case 'MONTHLY':
+          current = new Date(
+            current.getFullYear(),
+            current.getMonth() + rrule.interval,
+            current.getDate(),
+          );
+          break;
+        case 'YEARLY':
+          current = new Date(
+            current.getFullYear() + rrule.interval,
+            current.getMonth(),
+            current.getDate(),
+          );
+          break;
+        default:
+          current = addDays(current, rrule.interval);
+      }
+    }
+  }
+
+  return instances;
+}
+
+/**
+ * 指定日付が対象曜日に含まれるか判定する。
+ * @param {Date} date 判定対象の日付
+ * @param {string[]} targetDays 対象曜日の配列（例: ['TU']）
+ * @returns {boolean} 対象曜日なら true
+ */
+function isTargetWeekday(date, targetDays) {
+  const dayMap = {
+    SU: 0,
+    MO: 1,
+    TU: 2,
+    WE: 3,
+    TH: 4,
+    FR: 5,
+    SA: 6,
+  };
+
+  const targetDayNumbers = targetDays.map((d) => dayMap[d] || 0);
+  return targetDayNumbers.includes(date.getDay());
+}
+
+/**
+ * 指定された曜日の次の発生日を取得する。
+ * 例: TU = 火曜日, WE = 水曜日
+ * @param {Date} current 現在の日付
+ * @param {string[]} targetDays 対象曜日の配列（例: ['TU']）
+ * @param {number} interval 週の間隔
+ * @returns {Date} 次の発生日
+ */
+
+/**
  * ICS テキストを解析してイベント配列を返す。
+ * 繰り返しイベント (RRULE) は個別のイベントに展開される。
  * @param {string} ics ICS 生テキスト
  * @returns {{uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}[]} 解析済みイベント
  */
@@ -18,7 +192,13 @@ function parseICS(ics) {
     if (line === 'END:VEVENT' && current) {
       const parsed = toParsedEvent(current);
       if (parsed) {
-        events.push(parsed);
+        // RRULEがある場合は、繰り返しイベントを展開
+        if (current.rrule) {
+          const expanded = expandRecurringEvent(parsed, current.rrule);
+          events.push(...expanded);
+        } else {
+          events.push(parsed);
+        }
       }
       current = null;
       return;
@@ -50,6 +230,9 @@ function parseICS(ics) {
     }
     if (property.name === 'CLASS') {
       current.visibility = parseVisibility(property.value);
+    }
+    if (property.name === 'RRULE') {
+      current.rrule = property.value.trim();
     }
     if (
       property.name === 'X-MICROSOFT-CDO-BUSYSTATUS' &&

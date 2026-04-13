@@ -32,7 +32,7 @@ createEventToOutlook({
 - こちらは、外部ライブラリを使用しない場合のコードになります。組織のポリシー上ライブラリの使用が禁じられている場合にご利用ください。
 - 仕様上、outlookの予定は特定のURLで公開する事になります。予めご了承ください。
 - このコードの作者は、このコードの実行による一切の責任を負いません。コードを読み、何が起きるか分かったうえでご利用ください。
-
+- ICS ファイルに含まれる繰り返しイベント（RRULE）は Google Calendar 登録時に個別イベントとして展開されます（FREQ=DAILY/WEEKLY/MONTHLY/YEARLY、UNTIL、INTERVAL、BYDAY に対応）。
 ## セットアップ方法
 ### [ステップ1]　MicrosoftのAPIの準備
 1. https://portal.azure.com/ にアクセスし、自分のMicrosoftアカウントでログインする。
