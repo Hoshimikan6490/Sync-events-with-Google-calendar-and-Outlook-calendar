@@ -5,7 +5,7 @@ Google Calendar と Outlook Calendar の 1 か月分同期用の Google Apps Scr
 現在の同期は次の順で動作する。
 
 1. Outlook の ICS を取得して Google Calendar に反映する
-2. Google Calendar の中で Outlook 由来ではないイベントを Outlook に作成する
+2. Google Calendar の内容を Outlook に反映する
 
 主な実行関数は以下の 3 つ。
 
@@ -13,7 +13,9 @@ Google Calendar と Outlook Calendar の 1 か月分同期用の Google Apps Scr
 - `syncGoogleToOutlook()`
 - `syncMonthlyCalendars()`
 
-Outlook から取り込んだイベントは Google 側で `outlook_id` を持つため、Google → Outlook の再作成対象から除外される。
+Outlook から取り込んだイベントは Google 側で `outlook_id` を持つため、Google → Outlook の同期対象から除外される。
+
+Google → Outlook 側も作成・更新・削除を行い、同期結果は `created / updated / deleted` で返します。
 
 Outlook へのイベント作成では、スクリプト先頭の `outlookCalendarId` を設定すると、既定の予定表ではなく指定したカレンダーに作成できる。`createEventToOutlook()` に `calendarId` を渡した場合は、それが優先される。
 

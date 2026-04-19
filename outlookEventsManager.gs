@@ -1,50 +1,50 @@
 const OUTLOOK_CONFIG = {
-  // 置き換えが必要: Outlook カレンダー ID
-  calendarId: 'YOUR_OUTLOOK_CALENDAR_ID',
-  // 置き換えが必要: Microsoft アプリの client ID
-  clientId: 'YOUR_CLIENT_ID',
-  tenantId: 'consumers', // DO NOT CHANGE
-  redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient', // DO NOT CHANGE
-  // 置き換えが必要: setup() で取得した認可コード
-  authCode: 'YOUR_ACCESS_CODE',
+	// 置き換えが必要: Outlook カレンダー ID
+	calendarId: 'YOUR_OUTLOOK_CALENDAR_ID',
+	// 置き換えが必要: Microsoft アプリの client ID
+	clientId: 'YOUR_CLIENT_ID',
+	tenantId: 'consumers', // DO NOT CHANGE
+	redirectUri: 'https://login.microsoftonline.com/common/oauth2/nativeclient', // DO NOT CHANGE
+	// 置き換えが必要: setup() で取得した認可コード
+	authCode: 'YOUR_ACCESS_CODE',
 };
 const OUTLOOK_AUTH_BASE_URL = 'https://login.microsoftonline.com';
 const OUTLOOK_GRAPH_BASE_URL = 'https://graph.microsoft.com/v1.0';
 const OUTLOOK_GRAPH_SCOPE =
-  'offline_access https://graph.microsoft.com/Calendars.ReadWrite';
+	'offline_access https://graph.microsoft.com/Calendars.ReadWrite';
 const OUTLOOK_PROPERTY_KEYS = {
-  codeVerifier: 'oauth_code_verifier',
-  refreshToken: 'refresh_token',
-  accessToken: 'access_token',
+	codeVerifier: 'oauth_code_verifier',
+	refreshToken: 'refresh_token',
+	accessToken: 'access_token',
 };
 const OUTLOOK_DESCRIPTION_MARKER = /(?:^|\n)outlook_id:([^\n\r]+)/;
 const GOOGLE_ID_MARKER = /google_id:([^\s<]+@google\.com)\b/i;
 
 function getOutlookCalendarId() {
-  return OUTLOOK_CONFIG.calendarId;
+	return OUTLOOK_CONFIG.calendarId;
 }
 
 function getOutlookAuthTokenUrl() {
-  return (
-    OUTLOOK_AUTH_BASE_URL + '/' + OUTLOOK_CONFIG.tenantId + '/oauth2/v2.0/token'
-  );
+	return (
+		OUTLOOK_AUTH_BASE_URL + '/' + OUTLOOK_CONFIG.tenantId + '/oauth2/v2.0/token'
+	);
 }
 
 function getOutlookAuthAuthorizeUrl() {
-  return (
-    OUTLOOK_AUTH_BASE_URL +
-    '/' +
-    OUTLOOK_CONFIG.tenantId +
-    '/oauth2/v2.0/authorize'
-  );
+	return (
+		OUTLOOK_AUTH_BASE_URL +
+		'/' +
+		OUTLOOK_CONFIG.tenantId +
+		'/oauth2/v2.0/authorize'
+	);
 }
 
 function getScriptPropertyValue(key) {
-  return PropertiesService.getScriptProperties().getProperty(key);
+	return PropertiesService.getScriptProperties().getProperty(key);
 }
 
 function setScriptPropertyValue(key, value) {
-  PropertiesService.getScriptProperties().setProperty(key, value);
+	PropertiesService.getScriptProperties().setProperty(key, value);
 }
 
 /**
@@ -52,27 +52,27 @@ function setScriptPropertyValue(key, value) {
  * @returns {void}
  */
 function setup() {
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
+	const codeVerifier = generateCodeVerifier();
+	const codeChallenge = generateCodeChallenge(codeVerifier);
 
-  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.codeVerifier, codeVerifier);
+	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.codeVerifier, codeVerifier);
 
-  const url =
-    getOutlookAuthAuthorizeUrl() +
-    '?client_id=' +
-    OUTLOOK_CONFIG.clientId +
-    '&response_type=code' +
-    '&redirect_uri=' +
-    encodeURIComponent(OUTLOOK_CONFIG.redirectUri) +
-    '&scope=' +
-    encodeURIComponent(OUTLOOK_GRAPH_SCOPE) +
-    '&response_mode=query' +
-    '&code_challenge=' +
-    encodeURIComponent(codeChallenge) +
-    '&code_challenge_method=S256';
+	const url =
+		getOutlookAuthAuthorizeUrl() +
+		'?client_id=' +
+		OUTLOOK_CONFIG.clientId +
+		'&response_type=code' +
+		'&redirect_uri=' +
+		encodeURIComponent(OUTLOOK_CONFIG.redirectUri) +
+		'&scope=' +
+		encodeURIComponent(OUTLOOK_GRAPH_SCOPE) +
+		'&response_mode=query' +
+		'&code_challenge=' +
+		encodeURIComponent(codeChallenge) +
+		'&code_challenge_method=S256';
 
-  Logger.log('このURLを開いて認証して👇');
-  Logger.log(url);
+	Logger.log('このURLを開いて認証して👇');
+	Logger.log(url);
 }
 
 /**
@@ -80,51 +80,51 @@ function setup() {
  * @returns {void}
  */
 function authCallback() {
-  const codeVerifier = getScriptPropertyValue(
-    OUTLOOK_PROPERTY_KEYS.codeVerifier,
-  );
+	const codeVerifier = getScriptPropertyValue(
+		OUTLOOK_PROPERTY_KEYS.codeVerifier,
+	);
 
-  if (!codeVerifier) {
-    throw new Error(
-      'oauth_code_verifier がありません。先に setup() を実行して認可URLを再生成してください。',
-    );
-  }
+	if (!codeVerifier) {
+		throw new Error(
+			'oauth_code_verifier がありません。先に setup() を実行して認可URLを再生成してください。',
+		);
+	}
 
-  const payload = {
-    client_id: OUTLOOK_CONFIG.clientId,
-    code: OUTLOOK_CONFIG.authCode,
-    redirect_uri: OUTLOOK_CONFIG.redirectUri,
-    grant_type: 'authorization_code',
-    code_verifier: codeVerifier,
-  };
+	const payload = {
+		client_id: OUTLOOK_CONFIG.clientId,
+		code: OUTLOOK_CONFIG.authCode,
+		redirect_uri: OUTLOOK_CONFIG.redirectUri,
+		grant_type: 'authorization_code',
+		code_verifier: codeVerifier,
+	};
 
-  const options = {
-    method: 'post',
-    payload: payload,
-    muteHttpExceptions: true,
-  };
+	const options = {
+		method: 'post',
+		payload: payload,
+		muteHttpExceptions: true,
+	};
 
-  const res = UrlFetchApp.fetch(getOutlookAuthTokenUrl(), options);
-  const body = res.getContentText();
-  const status = res.getResponseCode();
+	const res = UrlFetchApp.fetch(getOutlookAuthTokenUrl(), options);
+	const body = res.getContentText();
+	const status = res.getResponseCode();
 
-  if (status >= 400) {
-    throw new Error('Token exchange failed (' + status + '): ' + body);
-  }
+	if (status >= 400) {
+		throw new Error('Token exchange failed (' + status + '): ' + body);
+	}
 
-  const data = JSON.parse(body);
+	const data = JSON.parse(body);
 
-  Logger.log(data);
+	Logger.log(data);
 
-  // refresh_token は毎回返るとは限らないため、存在時のみ更新する。
-  if (data.refresh_token) {
-    setScriptPropertyValue(
-      OUTLOOK_PROPERTY_KEYS.refreshToken,
-      data.refresh_token,
-    );
-  }
+	// refresh_token は毎回返るとは限らないため、存在時のみ更新する。
+	if (data.refresh_token) {
+		setScriptPropertyValue(
+			OUTLOOK_PROPERTY_KEYS.refreshToken,
+			data.refresh_token,
+		);
+	}
 
-  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
+	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 }
 
 /**
@@ -132,10 +132,10 @@ function authCallback() {
  * @returns {string} 64 文字の code_verifier
  */
 function generateCodeVerifier() {
-  const bytes =
-    Utilities.getUuid().replace(/-/g, '') +
-    Utilities.getUuid().replace(/-/g, '');
-  return bytes.slice(0, 64);
+	const bytes =
+		Utilities.getUuid().replace(/-/g, '') +
+		Utilities.getUuid().replace(/-/g, '');
+	return bytes.slice(0, 64);
 }
 
 /**
@@ -144,19 +144,19 @@ function generateCodeVerifier() {
  * @returns {string} base64url 形式の code_challenge
  */
 function generateCodeChallenge(codeVerifier) {
-  const digest = Utilities.computeDigest(
-    Utilities.DigestAlgorithm.SHA_256,
-    codeVerifier,
-    Utilities.Charset.UTF_8,
-  );
-  return base64UrlEncode(digest);
+	const digest = Utilities.computeDigest(
+		Utilities.DigestAlgorithm.SHA_256,
+		codeVerifier,
+		Utilities.Charset.UTF_8,
+	);
+	return base64UrlEncode(digest);
 }
 
 function base64UrlEncode(bytes) {
-  return Utilities.base64Encode(bytes)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+	return Utilities.base64Encode(bytes)
+		.replace(/\+/g, '-')
+		.replace(/\//g, '_')
+		.replace(/=+$/, '');
 }
 
 /**
@@ -164,51 +164,51 @@ function base64UrlEncode(bytes) {
  * @returns {string} 更新後の access_token
  */
 function refreshAccessToken() {
-  const url = getOutlookAuthTokenUrl();
+	const url = getOutlookAuthTokenUrl();
 
-  const refreshToken = getScriptPropertyValue(
-    OUTLOOK_PROPERTY_KEYS.refreshToken,
-  );
+	const refreshToken = getScriptPropertyValue(
+		OUTLOOK_PROPERTY_KEYS.refreshToken,
+	);
 
-  if (!refreshToken) {
-    throw new Error(
-      'refresh_token がありません。先に authCallback() を実行してトークンを保存してください。',
-    );
-  }
+	if (!refreshToken) {
+		throw new Error(
+			'refresh_token がありません。先に authCallback() を実行してトークンを保存してください。',
+		);
+	}
 
-  const payload = {
-    client_id: OUTLOOK_CONFIG.clientId,
-    refresh_token: refreshToken,
-    grant_type: 'refresh_token',
-  };
+	const payload = {
+		client_id: OUTLOOK_CONFIG.clientId,
+		refresh_token: refreshToken,
+		grant_type: 'refresh_token',
+	};
 
-  const options = {
-    method: 'post',
-    payload: payload,
-    muteHttpExceptions: true,
-  };
+	const options = {
+		method: 'post',
+		payload: payload,
+		muteHttpExceptions: true,
+	};
 
-  const res = UrlFetchApp.fetch(url, options);
-  const body = res.getContentText();
-  const status = res.getResponseCode();
+	const res = UrlFetchApp.fetch(url, options);
+	const body = res.getContentText();
+	const status = res.getResponseCode();
 
-  if (status >= 400) {
-    throw new Error('Refresh token failed (' + status + '): ' + body);
-  }
+	if (status >= 400) {
+		throw new Error('Refresh token failed (' + status + '): ' + body);
+	}
 
-  const data = JSON.parse(body);
+	const data = JSON.parse(body);
 
-  // トークン更新保存
-  setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
+	// トークン更新保存
+	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 
-  if (data.refresh_token) {
-    setScriptPropertyValue(
-      OUTLOOK_PROPERTY_KEYS.refreshToken,
-      data.refresh_token,
-    );
-  }
+	if (data.refresh_token) {
+		setScriptPropertyValue(
+			OUTLOOK_PROPERTY_KEYS.refreshToken,
+			data.refresh_token,
+		);
+	}
 
-  return data.access_token;
+	return data.access_token;
 }
 
 /**
@@ -233,105 +233,307 @@ function refreshAccessToken() {
  * @returns {Object} Microsoft Graph の作成結果
  */
 function createEventToOutlook(eventOptions, accessToken) {
-  const token = accessToken || refreshAccessToken();
+	const token = accessToken || refreshAccessToken();
 
-  const normalized = normalizeEventOptions(eventOptions);
-  const calendarId = normalized.calendarId || getOutlookCalendarId();
-  const url = calendarId
-    ? OUTLOOK_GRAPH_BASE_URL +
-      '/me/calendars/' +
-      encodeURIComponent(calendarId) +
-      '/events'
-    : OUTLOOK_GRAPH_BASE_URL + '/me/events';
+	const normalized = normalizeEventOptions(eventOptions);
+	const calendarId = normalized.calendarId || getOutlookCalendarId();
+	const url = calendarId
+		? OUTLOOK_GRAPH_BASE_URL +
+			'/me/calendars/' +
+			encodeURIComponent(calendarId) +
+			'/events'
+		: OUTLOOK_GRAPH_BASE_URL + '/me/events';
+	const payload = buildOutlookEventPayload(normalized);
 
-  const payload = {
-    subject: normalized.subject,
-    start: {
-      dateTime: formatGraphDateTime(normalized.start, normalized.timeZone),
-      timeZone: normalized.timeZone,
-    },
-    end: {
-      dateTime: formatGraphDateTime(normalized.end, normalized.timeZone),
-      timeZone: normalized.timeZone,
-    },
-  };
+	const requestOptions = {
+		method: 'post',
+		contentType: 'application/json',
+		headers: {
+			Authorization: 'Bearer ' + token,
+		},
+		payload: JSON.stringify(cleanPayload(payload)),
+		muteHttpExceptions: true,
+	};
 
-  if (normalized.body) {
-    payload.body = {
-      contentType: normalized.body.contentType,
-      content: normalized.body.content,
-    };
-  }
+	const response = UrlFetchApp.fetch(url, requestOptions);
+	const responseBody = response.getContentText();
 
-  if (normalized.location) {
-    payload.location = {
-      displayName: normalized.location,
-    };
-  }
+	if (response.getResponseCode() >= 400) {
+		throw new Error(
+			'Event creation failed (' +
+				response.getResponseCode() +
+				'): ' +
+				responseBody,
+		);
+	}
 
-  if (normalized.isAllDay) {
-    payload.isAllDay = true;
-  }
+	return JSON.parse(responseBody);
+}
 
-  if (normalized.attendees.length > 0) {
-    payload.attendees = normalized.attendees.map(function (attendee) {
-      return {
-        emailAddress: {
-          address: attendee.email,
-          name: attendee.name || attendee.email,
-        },
-        type: attendee.type || 'required',
-      };
-    });
-  }
+/**
+ * Outlook のイベントを更新する。
+ * @param {string} eventId Outlook イベントID
+ * @param {Object} eventOptions 更新後のイベント設定
+ * @param {string} accessToken アクセストークン
+ * @returns {Object} Microsoft Graph の更新結果
+ */
+function updateEventToOutlook(eventId, eventOptions, accessToken) {
+	const token = accessToken || refreshAccessToken();
+	const normalized = normalizeEventOptions(eventOptions);
+	const url = getOutlookEventUrl(eventId, normalized.calendarId);
 
-  if (normalized.categories.length > 0) {
-    payload.categories = normalized.categories;
-  }
+	const response = UrlFetchApp.fetch(url, {
+		method: 'patch',
+		contentType: 'application/json',
+		headers: {
+			Authorization: 'Bearer ' + token,
+		},
+		payload: JSON.stringify(buildOutlookEventPayload(normalized)),
+		muteHttpExceptions: true,
+	});
 
-  if (normalized.showAs) {
-    payload.showAs = normalized.showAs;
-  }
+	const responseBody = response.getContentText();
 
-  if (normalized.sensitivity) {
-    payload.sensitivity = normalized.sensitivity;
-  }
+	if (response.getResponseCode() >= 400) {
+		throw new Error(
+			'Event update failed (' +
+				response.getResponseCode() +
+				'): ' +
+				responseBody,
+		);
+	}
 
-  if (normalized.importance) {
-    payload.importance = normalized.importance;
-  }
+	return responseBody ? JSON.parse(responseBody) : {};
+}
 
-  if (typeof normalized.isReminderOn === 'boolean') {
-    payload.isReminderOn = normalized.isReminderOn;
-  }
+/**
+ * Outlook のイベントを削除する。
+ * @param {string} eventId Outlook イベントID
+ * @param {string} accessToken アクセストークン
+ * @returns {void}
+ */
+function deleteEventFromOutlook(eventId, accessToken) {
+	const token = accessToken || refreshAccessToken();
+	const url = getOutlookEventUrl(eventId);
 
-  if (typeof normalized.reminderMinutesBeforeStart === 'number') {
-    payload.reminderMinutesBeforeStart = normalized.reminderMinutesBeforeStart;
-  }
+	const response = UrlFetchApp.fetch(url, {
+		method: 'delete',
+		headers: {
+			Authorization: 'Bearer ' + token,
+		},
+		muteHttpExceptions: true,
+	});
 
-  const requestOptions = {
-    method: 'post',
-    contentType: 'application/json',
-    headers: {
-      Authorization: 'Bearer ' + token,
-    },
-    payload: JSON.stringify(cleanPayload(payload)),
-    muteHttpExceptions: true,
-  };
+	if (response.getResponseCode() >= 400) {
+		throw new Error(
+			'Event deletion failed (' +
+				response.getResponseCode() +
+				'): ' +
+				response.getContentText(),
+		);
+	}
+}
 
-  const response = UrlFetchApp.fetch(url, requestOptions);
-  const responseBody = response.getContentText();
+/**
+ * Outlook Graph API のイベント URL を生成する。
+ * @param {string} eventId Outlook イベントID
+ * @param {string} [calendarId] カレンダーID
+ * @returns {string} Graph API のイベント URL
+ */
+function getOutlookEventUrl(eventId, calendarId) {
+	const targetCalendarId = calendarId || getOutlookCalendarId();
+	const basePath = targetCalendarId
+		? '/me/calendars/' +
+			encodeURIComponent(targetCalendarId) +
+			'/events/' +
+			encodeURIComponent(eventId)
+		: '/me/events/' + encodeURIComponent(eventId);
 
-  if (response.getResponseCode() >= 400) {
-    throw new Error(
-      'Event creation failed (' +
-        response.getResponseCode() +
-        '): ' +
-        responseBody,
-    );
-  }
+	return OUTLOOK_GRAPH_BASE_URL + basePath;
+}
 
-  return JSON.parse(responseBody);
+/**
+ * Graph API へ送る Outlook イベント payload を組み立てる。
+ * @param {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], calendarId: string, showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} normalized 正規化済み設定
+ * @returns {Object} Graph API 用の payload
+ */
+function buildOutlookEventPayload(eventOptions) {
+	const normalized = normalizeEventOptions(eventOptions);
+	const payload = {
+		subject: normalized.subject,
+		start: {
+			dateTime: formatGraphDateTime(normalized.start, normalized.timeZone),
+			timeZone: normalized.timeZone,
+		},
+		end: {
+			dateTime: formatGraphDateTime(normalized.end, normalized.timeZone),
+			timeZone: normalized.timeZone,
+		},
+	};
+
+	if (normalized.body) {
+		payload.body = {
+			contentType: normalized.body.contentType,
+			content: normalized.body.content,
+		};
+	}
+
+	if (normalized.location) {
+		payload.location = {
+			displayName: normalized.location,
+		};
+	}
+
+	if (normalized.isAllDay) {
+		payload.isAllDay = true;
+	}
+
+	if (normalized.attendees.length > 0) {
+		payload.attendees = normalized.attendees.map(function (attendee) {
+			return {
+				emailAddress: {
+					address: attendee.email,
+					name: attendee.name || attendee.email,
+				},
+				type: attendee.type || 'required',
+			};
+		});
+	}
+
+	if (normalized.categories.length > 0) {
+		payload.categories = normalized.categories;
+	}
+
+	if (normalized.showAs) {
+		payload.showAs = normalized.showAs;
+	}
+
+	if (normalized.sensitivity) {
+		payload.sensitivity = normalized.sensitivity;
+	}
+
+	if (normalized.importance) {
+		payload.importance = normalized.importance;
+	}
+
+	if (typeof normalized.isReminderOn === 'boolean') {
+		payload.isReminderOn = normalized.isReminderOn;
+	}
+
+	if (typeof normalized.reminderMinutesBeforeStart === 'number') {
+		payload.reminderMinutesBeforeStart = normalized.reminderMinutesBeforeStart;
+	}
+
+	return cleanPayload(payload);
+}
+
+/**
+ * Outlook の既存イベントと Google から作る予定が同じか判定する。
+ * @param {Object} existingEvent Outlook イベント
+ * @param {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], calendarId: string, showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} desired 生成予定のイベント設定
+ * @returns {boolean} 同一なら true
+ */
+function isSameOutlookEvent(existingEvent, desired) {
+	if (!existingEvent) {
+		return false;
+	}
+
+	const normalizedDesired = normalizeEventOptions(desired);
+	const desiredPayload = buildOutlookEventPayload(normalizedDesired);
+	const existingBody = existingEvent.body || {};
+	const existingLocation = existingEvent.location || {};
+
+	if (
+		String(existingEvent.subject || '') !==
+		String(normalizedDesired.subject || '')
+	) {
+		return false;
+	}
+
+	if (Boolean(existingEvent.isAllDay) !== Boolean(normalizedDesired.isAllDay)) {
+		return false;
+	}
+
+	if (
+		String(existingEvent.showAs || '') !== String(desiredPayload.showAs || '')
+	) {
+		return false;
+	}
+
+	if (
+		String(
+			existingEvent.start && existingEvent.start.dateTime
+				? existingEvent.start.dateTime
+				: '',
+		) !== String(desiredPayload.start.dateTime || '')
+	) {
+		return false;
+	}
+
+	if (
+		String(
+			existingEvent.end && existingEvent.end.dateTime
+				? existingEvent.end.dateTime
+				: '',
+		) !== String(desiredPayload.end.dateTime || '')
+	) {
+		return false;
+	}
+
+	if (
+		String(
+			existingEvent.start && existingEvent.start.timeZone
+				? existingEvent.start.timeZone
+				: '',
+		) !== String(desiredPayload.start.timeZone || '')
+	) {
+		return false;
+	}
+
+	if (
+		String(
+			existingEvent.end && existingEvent.end.timeZone
+				? existingEvent.end.timeZone
+				: '',
+		) !== String(desiredPayload.end.timeZone || '')
+	) {
+		return false;
+	}
+
+	if (
+		String(existingBody.contentType || '') !==
+		String(
+			desiredPayload.body && desiredPayload.body.contentType
+				? desiredPayload.body.contentType
+				: '',
+		)
+	) {
+		return false;
+	}
+
+	if (
+		String(existingBody.content || '') !==
+		String(
+			desiredPayload.body && desiredPayload.body.content
+				? desiredPayload.body.content
+				: '',
+		)
+	) {
+		return false;
+	}
+
+	if (
+		String(existingLocation.displayName || '') !==
+		String(
+			desiredPayload.location && desiredPayload.location.displayName
+				? desiredPayload.location.displayName
+				: '',
+		)
+	) {
+		return false;
+	}
+
+	return true;
 }
 
 /**
@@ -341,32 +543,65 @@ function createEventToOutlook(eventOptions, accessToken) {
  * @returns {Object[]} Outlook イベント一覧
  */
 function listOutlookEventsInRange(rangeStart, rangeEnd) {
-  const token = refreshAccessToken();
-  const targetCalendarId = getOutlookCalendarId();
-  const calendarPath = targetCalendarId
-    ? '/me/calendars/' + encodeURIComponent(targetCalendarId) + '/calendarView'
-    : '/me/calendarView';
-  let url =
-    OUTLOOK_GRAPH_BASE_URL +
-    calendarPath +
-    '?startDateTime=' +
-    encodeURIComponent(formatGraphUtcDateTime(rangeStart)) +
-    '&endDateTime=' +
-    encodeURIComponent(formatGraphUtcDateTime(rangeEnd)) +
-    '&$select=id,subject,start,end,isAllDay,body,location,showAs';
+	const token = refreshAccessToken();
+	const targetCalendarId = getOutlookCalendarId();
+	const calendarPath = targetCalendarId
+		? '/me/calendars/' + encodeURIComponent(targetCalendarId) + '/calendarView'
+		: '/me/calendarView';
+	let url =
+		OUTLOOK_GRAPH_BASE_URL +
+		calendarPath +
+		'?startDateTime=' +
+		encodeURIComponent(formatGraphUtcDateTime(rangeStart)) +
+		'&endDateTime=' +
+		encodeURIComponent(formatGraphUtcDateTime(rangeEnd)) +
+		'&$select=id,subject,start,end,isAllDay,body,location,showAs';
 
-  let events = [];
+	let events = [];
 
-  while (url) {
-    const response = fetchGraphJson(url, token);
-    if (response.value && response.value.length > 0) {
-      events = events.concat(response.value);
-    }
+	while (url) {
+		const response = fetchGraphJson(url, token);
+		if (response.value && response.value.length > 0) {
+			events = events.concat(response.value);
+		}
 
-    url = response['@odata.nextLink'] || null;
-  }
+		url = response['@odata.nextLink'] || null;
+	}
 
-  return events;
+	return events;
+}
+
+/**
+ * Outlook 由来の Google イベント ID をイベント本体付きで集める。
+ * @param {Object[]} outlookEvents Outlook イベント一覧
+ * @returns {Object.<string, Object>} Google イベント ID -> Outlook イベント
+ */
+function buildOutlookGoogleEventMap(outlookEvents) {
+	const map = Object.create(null);
+
+	outlookEvents.forEach(function (event) {
+		const googleEventId = extractGoogleEventIdFromOutlookEvent(event);
+		if (googleEventId) {
+			map[toCanonicalGoogleEventId(googleEventId)] = event;
+		}
+	});
+
+	return map;
+}
+
+/**
+ * Google Calendar イベントの ID を集める。
+ * @param {GoogleAppsScript.Calendar.CalendarEvent[]} googleEvents Google Calendar イベント一覧
+ * @returns {Object.<string, boolean>} Google イベント ID -> true
+ */
+function buildGoogleIdSet(googleEvents) {
+	const set = Object.create(null);
+
+	googleEvents.forEach(function (event) {
+		set[toCanonicalGoogleEventId(event.getId())] = true;
+	});
+
+	return set;
 }
 
 /**
@@ -375,16 +610,16 @@ function listOutlookEventsInRange(rangeStart, rangeEnd) {
  * @returns {Object.<string, boolean>} Google イベント ID -> true
  */
 function buildOutlookGoogleIdSet(outlookEvents) {
-  const set = Object.create(null);
+	const set = Object.create(null);
 
-  outlookEvents.forEach(function (event) {
-    const googleEventId = extractGoogleEventIdFromOutlookEvent(event);
-    if (googleEventId) {
-      set[googleEventId] = true;
-    }
-  });
+	outlookEvents.forEach(function (event) {
+		const googleEventId = extractGoogleEventIdFromOutlookEvent(event);
+		if (googleEventId) {
+			set[googleEventId] = true;
+		}
+	});
 
-  return set;
+	return set;
 }
 
 /**
@@ -393,13 +628,13 @@ function buildOutlookGoogleIdSet(outlookEvents) {
  * @returns {string|null} Google イベント ID
  */
 function extractGoogleEventIdFromOutlookEvent(outlookEvent) {
-  const bodyContent =
-    outlookEvent && outlookEvent.body && outlookEvent.body.content
-      ? String(outlookEvent.body.content)
-      : '';
+	const bodyContent =
+		outlookEvent && outlookEvent.body && outlookEvent.body.content
+			? String(outlookEvent.body.content)
+			: '';
 
-  const match = findGoogleIdMarker(bodyContent);
-  return match ? match : null;
+	const match = findGoogleIdMarker(bodyContent);
+	return match ? match : null;
 }
 
 /**
@@ -408,22 +643,22 @@ function extractGoogleEventIdFromOutlookEvent(outlookEvent) {
  * @returns {string|null} Google イベント ID
  */
 function findGoogleIdMarker(content) {
-  if (!content) {
-    return null;
-  }
+	if (!content) {
+		return null;
+	}
 
-  const normalized = String(content)
-    .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/<\/(?:div|p|li|tr|h[1-6])>/gi, '\n')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/\r/g, '');
+	const normalized = String(content)
+		.replace(/<br\s*\/?\s*>/gi, '\n')
+		.replace(/<\/(?:div|p|li|tr|h[1-6])>/gi, '\n')
+		.replace(/<[^>]+>/g, ' ')
+		.replace(/&nbsp;/gi, ' ')
+		.replace(/&amp;/gi, '&')
+		.replace(/\r/g, '');
 
-  const match = normalized.match(GOOGLE_ID_MARKER);
-  const googleEventId = match ? match[1].trim() : null;
+	const match = normalized.match(GOOGLE_ID_MARKER);
+	const googleEventId = match ? match[1].trim() : null;
 
-  return googleEventId;
+	return googleEventId;
 }
 
 /**
@@ -432,12 +667,12 @@ function findGoogleIdMarker(content) {
  * @returns {string} google_id 用の統一ID
  */
 function toCanonicalGoogleEventId(googleEventId) {
-  const id = String(googleEventId || '').trim();
-  if (!id) {
-    return id;
-  }
+	const id = String(googleEventId || '').trim();
+	if (!id) {
+		return id;
+	}
 
-  return /@google\.com$/i.test(id) ? id : id + '@google.com';
+	return /@google\.com$/i.test(id) ? id : id + '@google.com';
 }
 
 /**
@@ -446,16 +681,16 @@ function toCanonicalGoogleEventId(googleEventId) {
  * @returns {Object.<string, boolean>} Outlook イベント ID -> true
  */
 function buildGoogleOutlookIdSet(googleEvents) {
-  const set = {};
+	const set = {};
 
-  googleEvents.forEach(function (event) {
-    const outlookEventId = extractOutlookEventIdFromGoogleEvent(event);
-    if (outlookEventId) {
-      set[outlookEventId] = true;
-    }
-  });
+	googleEvents.forEach(function (event) {
+		const outlookEventId = extractOutlookEventIdFromGoogleEvent(event);
+		if (outlookEventId) {
+			set[outlookEventId] = true;
+		}
+	});
 
-  return set;
+	return set;
 }
 
 /**
@@ -464,16 +699,16 @@ function buildGoogleOutlookIdSet(googleEvents) {
  * @returns {string|null} Outlook イベント ID
  */
 function extractOutlookEventIdFromGoogleEvent(googleEvent) {
-  const description =
-    googleEvent && googleEvent.getDescription
-      ? googleEvent.getDescription()
-      : '';
-  if (!description) {
-    return null;
-  }
+	const description =
+		googleEvent && googleEvent.getDescription
+			? googleEvent.getDescription()
+			: '';
+	if (!description) {
+		return null;
+	}
 
-  const match = String(description).match(OUTLOOK_DESCRIPTION_MARKER);
-  return match ? match[1].trim() : null;
+	const match = String(description).match(OUTLOOK_DESCRIPTION_MARKER);
+	return match ? match[1].trim() : null;
 }
 
 /**
@@ -482,32 +717,32 @@ function extractOutlookEventIdFromGoogleEvent(googleEvent) {
  * @returns {Object} createEventToOutlook 用のオプション
  */
 function convertGoogleEventToOutlookOptions(event) {
-  const calendar = CalendarApp.getDefaultCalendar();
-  const timeZone =
-    typeof calendar.getTimeZone === 'function'
-      ? calendar.getTimeZone()
-      : Session.getScriptTimeZone();
-  const isAllDay = event.isAllDayEvent();
-  const start = isAllDay ? event.getAllDayStartDate() : event.getStartTime();
-  const end = isAllDay ? event.getAllDayEndDate() : event.getEndTime();
-  const description = event.getDescription() || '';
-  let bodyContent = description ? description + '\n\n' : '';
+	const calendar = CalendarApp.getDefaultCalendar();
+	const timeZone =
+		typeof calendar.getTimeZone === 'function'
+			? calendar.getTimeZone()
+			: Session.getScriptTimeZone();
+	const isAllDay = event.isAllDayEvent();
+	const start = isAllDay ? event.getAllDayStartDate() : event.getStartTime();
+	const end = isAllDay ? event.getAllDayEndDate() : event.getEndTime();
+	const description = event.getDescription() || '';
+	let bodyContent = description ? description + '\n\n' : '';
 
-  bodyContent += 'google_id:' + toCanonicalGoogleEventId(event.getId());
+	bodyContent += 'google_id:' + toCanonicalGoogleEventId(event.getId());
 
-  return {
-    subject: ensureManagedOutlookSubjectPrefix(event.getTitle()),
-    start: start,
-    end: end,
-    timeZone: timeZone,
-    isAllDay: isAllDay,
-    body: {
-      contentType: 'text',
-      content: bodyContent,
-    },
-    location: event.getLocation() || '',
-    showAs: mapGoogleTransparencyToOutlookShowAs(event.getTransparency()),
-  };
+	return {
+		subject: ensureManagedOutlookSubjectPrefix(event.getTitle()),
+		start: start,
+		end: end,
+		timeZone: timeZone,
+		isAllDay: isAllDay,
+		body: {
+			contentType: 'text',
+			content: bodyContent,
+		},
+		location: event.getLocation() || '',
+		showAs: mapGoogleTransparencyToOutlookShowAs(event.getTransparency()),
+	};
 }
 
 /**
@@ -516,17 +751,17 @@ function convertGoogleEventToOutlookOptions(event) {
  * @returns {string} プレフィックス付与後の件名
  */
 function ensureManagedOutlookSubjectPrefix(title) {
-  const normalizedTitle = title ? String(title) : '(無題)';
+	const normalizedTitle = title ? String(title) : '(無題)';
 
-  if (
-    typeof MANAGED_OUTLOOK_SUBJECT_PREFIX === 'string' &&
-    MANAGED_OUTLOOK_SUBJECT_PREFIX.length > 0 &&
-    normalizedTitle.indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) !== 0
-  ) {
-    return MANAGED_OUTLOOK_SUBJECT_PREFIX + normalizedTitle;
-  }
+	if (
+		typeof MANAGED_OUTLOOK_SUBJECT_PREFIX === 'string' &&
+		MANAGED_OUTLOOK_SUBJECT_PREFIX.length > 0 &&
+		normalizedTitle.indexOf(MANAGED_OUTLOOK_SUBJECT_PREFIX) !== 0
+	) {
+		return MANAGED_OUTLOOK_SUBJECT_PREFIX + normalizedTitle;
+	}
 
-  return normalizedTitle;
+	return normalizedTitle;
 }
 
 /**
@@ -535,11 +770,11 @@ function ensureManagedOutlookSubjectPrefix(title) {
  * @returns {string} Outlook の表示状態
  */
 function mapGoogleTransparencyToOutlookShowAs(transparency) {
-  if (transparency === CalendarApp.EventTransparency.TRANSPARENT) {
-    return 'free';
-  }
+	if (transparency === CalendarApp.EventTransparency.TRANSPARENT) {
+		return 'free';
+	}
 
-  return 'busy';
+	return 'busy';
 }
 
 /**
@@ -549,22 +784,22 @@ function mapGoogleTransparencyToOutlookShowAs(transparency) {
  * @returns {Object} 解析済みレスポンス
  */
 function fetchGraphJson(url, token) {
-  const response = UrlFetchApp.fetch(url, {
-    method: 'get',
-    headers: {
-      Authorization: 'Bearer ' + token,
-    },
-    muteHttpExceptions: true,
-  });
+	const response = UrlFetchApp.fetch(url, {
+		method: 'get',
+		headers: {
+			Authorization: 'Bearer ' + token,
+		},
+		muteHttpExceptions: true,
+	});
 
-  const body = response.getContentText();
-  if (response.getResponseCode() >= 400) {
-    throw new Error(
-      'Graph request failed (' + response.getResponseCode() + '): ' + body,
-    );
-  }
+	const body = response.getContentText();
+	if (response.getResponseCode() >= 400) {
+		throw new Error(
+			'Graph request failed (' + response.getResponseCode() + '): ' + body,
+		);
+	}
 
-  return JSON.parse(body);
+	return JSON.parse(body);
 }
 
 /**
@@ -573,13 +808,13 @@ function fetchGraphJson(url, token) {
  * @returns {string} Graph API 用の UTC 文字列
  */
 function formatGraphUtcDateTime(date) {
-  if (!(date instanceof Date) || isNaN(date.getTime())) {
-    throw new Error(
-      '日時が不正です。Date オブジェクトか有効な日付を指定してください。',
-    );
-  }
+	if (!(date instanceof Date) || isNaN(date.getTime())) {
+		throw new Error(
+			'日時が不正です。Date オブジェクトか有効な日付を指定してください。',
+		);
+	}
 
-  return Utilities.formatDate(date, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
+	return Utilities.formatDate(date, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
 }
 
 /**
@@ -588,52 +823,52 @@ function formatGraphUtcDateTime(date) {
  * @returns {{subject: string, body: Object|null, location: string, start: Date, end: Date, timeZone: string, isAllDay: boolean, attendees: Object[], categories: string[], calendarId: string, showAs: string, sensitivity: string, importance: string, isReminderOn: (boolean|undefined), reminderMinutesBeforeStart: (number|undefined)}} 正規化後の設定
  */
 function normalizeEventOptions(eventOptions) {
-  const now = new Date();
-  const start =
-    eventOptions && eventOptions.start ? new Date(eventOptions.start) : now;
-  const end =
-    eventOptions && eventOptions.end
-      ? new Date(eventOptions.end)
-      : new Date(start.getTime() + 60 * 60 * 1000);
+	const now = new Date();
+	const start =
+		eventOptions && eventOptions.start ? new Date(eventOptions.start) : now;
+	const end =
+		eventOptions && eventOptions.end
+			? new Date(eventOptions.end)
+			: new Date(start.getTime() + 60 * 60 * 1000);
 
-  return {
-    subject: eventOptions && (eventOptions.subject || eventOptions.title),
-    body: eventOptions && eventOptions.body ? eventOptions.body : null,
-    location:
-      eventOptions && eventOptions.location
-        ? String(eventOptions.location)
-        : '',
-    start: start,
-    end: end,
-    timeZone: (eventOptions && eventOptions.timeZone) || 'Asia/Tokyo',
-    isAllDay: Boolean(eventOptions && eventOptions.isAllDay),
-    attendees:
-      eventOptions && Array.isArray(eventOptions.attendees)
-        ? eventOptions.attendees
-        : [],
-    categories:
-      eventOptions && Array.isArray(eventOptions.categories)
-        ? eventOptions.categories
-        : [],
-    calendarId:
-      eventOptions && eventOptions.calendarId
-        ? String(eventOptions.calendarId)
-        : '',
-    showAs: eventOptions && eventOptions.showAs ? eventOptions.showAs : '',
-    sensitivity:
-      eventOptions && eventOptions.sensitivity ? eventOptions.sensitivity : '',
-    importance:
-      eventOptions && eventOptions.importance ? eventOptions.importance : '',
-    isReminderOn:
-      eventOptions && typeof eventOptions.isReminderOn === 'boolean'
-        ? eventOptions.isReminderOn
-        : undefined,
-    reminderMinutesBeforeStart:
-      eventOptions &&
-      typeof eventOptions.reminderMinutesBeforeStart === 'number'
-        ? eventOptions.reminderMinutesBeforeStart
-        : undefined,
-  };
+	return {
+		subject: eventOptions && (eventOptions.subject || eventOptions.title),
+		body: eventOptions && eventOptions.body ? eventOptions.body : null,
+		location:
+			eventOptions && eventOptions.location
+				? String(eventOptions.location)
+				: '',
+		start: start,
+		end: end,
+		timeZone: (eventOptions && eventOptions.timeZone) || 'Asia/Tokyo',
+		isAllDay: Boolean(eventOptions && eventOptions.isAllDay),
+		attendees:
+			eventOptions && Array.isArray(eventOptions.attendees)
+				? eventOptions.attendees
+				: [],
+		categories:
+			eventOptions && Array.isArray(eventOptions.categories)
+				? eventOptions.categories
+				: [],
+		calendarId:
+			eventOptions && eventOptions.calendarId
+				? String(eventOptions.calendarId)
+				: '',
+		showAs: eventOptions && eventOptions.showAs ? eventOptions.showAs : '',
+		sensitivity:
+			eventOptions && eventOptions.sensitivity ? eventOptions.sensitivity : '',
+		importance:
+			eventOptions && eventOptions.importance ? eventOptions.importance : '',
+		isReminderOn:
+			eventOptions && typeof eventOptions.isReminderOn === 'boolean'
+				? eventOptions.isReminderOn
+				: undefined,
+		reminderMinutesBeforeStart:
+			eventOptions &&
+			typeof eventOptions.reminderMinutesBeforeStart === 'number'
+				? eventOptions.reminderMinutesBeforeStart
+				: undefined,
+	};
 }
 
 /**
@@ -643,13 +878,13 @@ function normalizeEventOptions(eventOptions) {
  * @returns {string} Graph API 用の日時文字列
  */
 function formatGraphDateTime(date, timeZone) {
-  if (!(date instanceof Date) || isNaN(date.getTime())) {
-    throw new Error(
-      'イベント日時が不正です。Date オブジェクトか有効な日付を指定してください。',
-    );
-  }
+	if (!(date instanceof Date) || isNaN(date.getTime())) {
+		throw new Error(
+			'イベント日時が不正です。Date オブジェクトか有効な日付を指定してください。',
+		);
+	}
 
-  return Utilities.formatDate(date, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+	return Utilities.formatDate(date, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
 /**
@@ -658,23 +893,23 @@ function formatGraphDateTime(date, timeZone) {
  * @returns {*} 取り除き済みの値
  */
 function cleanPayload(value) {
-  if (Array.isArray(value)) {
-    return value.map(cleanPayload);
-  }
+	if (Array.isArray(value)) {
+		return value.map(cleanPayload);
+	}
 
-  if (value && typeof value === 'object') {
-    const cleaned = {};
-    Object.keys(value).forEach(function (key) {
-      if (
-        value[key] !== undefined &&
-        value[key] !== null &&
-        value[key] !== ''
-      ) {
-        cleaned[key] = cleanPayload(value[key]);
-      }
-    });
-    return cleaned;
-  }
+	if (value && typeof value === 'object') {
+		const cleaned = {};
+		Object.keys(value).forEach(function (key) {
+			if (
+				value[key] !== undefined &&
+				value[key] !== null &&
+				value[key] !== ''
+			) {
+				cleaned[key] = cleanPayload(value[key]);
+			}
+		});
+		return cleaned;
+	}
 
-  return value;
+	return value;
 }
