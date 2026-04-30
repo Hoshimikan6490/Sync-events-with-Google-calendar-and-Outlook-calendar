@@ -59,12 +59,16 @@ function expandRecurringEvent(baseEvent, rruleString) {
 	const instances = getRecurrenceInstances(baseEvent.start, rrule);
 	const duration = baseEvent.end.getTime() - baseEvent.start.getTime();
 
-	instances.forEach((startTime, index) => {
+	instances.forEach((startTime) => {
 		const eventStart = new Date(startTime);
 		const eventEnd = new Date(eventStart.getTime() + duration);
 
 		expanded.push({
-			uid: baseEvent.uid + '-' + index,
+			uid: buildRecurringEventUid(
+				baseEvent.uid,
+				eventStart,
+				baseEvent.isAllDay,
+			),
 			title: baseEvent.title,
 			start: eventStart,
 			end: eventEnd,
@@ -75,6 +79,33 @@ function expandRecurringEvent(baseEvent, rruleString) {
 	});
 
 	return expanded;
+}
+
+/**
+ * 繰り返しイベントの各発生を安定した UID へ変換する。
+ * @param {string} baseUid 元の UID
+ * @param {Date} occurrenceStart 発生日時
+ * @param {boolean} isAllDay 終日イベントかどうか
+ * @returns {string} 安定化した UID
+ */
+function buildRecurringEventUid(baseUid, occurrenceStart, isAllDay) {
+	return (
+		baseUid + '-r-' + buildRecurringOccurrenceKey(occurrenceStart, isAllDay)
+	);
+}
+
+/**
+ * 繰り返しイベントの発生を識別するキーを作る。
+ * @param {Date} occurrenceStart 発生日時
+ * @param {boolean} isAllDay 終日イベントかどうか
+ * @returns {string} 発生キー
+ */
+function buildRecurringOccurrenceKey(occurrenceStart, isAllDay) {
+	if (!(occurrenceStart instanceof Date) || isNaN(occurrenceStart.getTime())) {
+		return '';
+	}
+
+	return (isAllDay ? 'D:' : 'T:') + String(occurrenceStart.getTime());
 }
 
 /**
@@ -180,22 +211,32 @@ function isTargetWeekday(date, targetDays) {
 function parseICS(ics) {
 	const lines = unfoldICSLines(ics);
 	const events = [];
+	const recurringSeriesByUid = Object.create(null);
 
 	let current = null;
 
 	lines.forEach((line) => {
 		if (line === 'BEGIN:VEVENT') {
-			current = {};
+			current = {
+				exdates: [],
+			};
 			return;
 		}
 
 		if (line === 'END:VEVENT' && current) {
 			const parsed = toParsedEvent(current);
 			if (parsed) {
-				// RRULEがある場合は、繰り返しイベントを展開
-				if (current.rrule) {
-					const expanded = expandRecurringEvent(parsed, current.rrule);
-					events.push(...expanded);
+				// RRULE か RECURRENCE-ID がある場合は、同一系列としてまとめる。
+				if (
+					current.rrule ||
+					current.recurrenceId ||
+					current.exdates.length > 0
+				) {
+					const series = getOrCreateRecurringSeries(
+						recurringSeriesByUid,
+						current.uid,
+					);
+					registerRecurringSeriesEvent(series, current, parsed);
 				} else {
 					events.push(parsed);
 				}
@@ -234,6 +275,25 @@ function parseICS(ics) {
 		if (property.name === 'RRULE') {
 			current.rrule = property.value.trim();
 		}
+		if (property.name === 'RECURRENCE-ID') {
+			current.recurrenceId = parseICSDateValue(property.value, property.params);
+		}
+		if (property.name === 'EXDATE') {
+			const values = String(property.value || '')
+				.split(',')
+				.map((value) => value.trim())
+				.filter((value) => value);
+
+			values.forEach((value) => {
+				const exdate = parseICSDateValue(value, property.params);
+				if (exdate && exdate.date) {
+					current.exdates.push(exdate);
+				}
+			});
+		}
+		if (property.name === 'STATUS') {
+			current.status = property.value.trim().toUpperCase();
+		}
 		if (
 			property.name === 'X-MICROSOFT-CDO-BUSYSTATUS' &&
 			!current.transparency
@@ -242,7 +302,148 @@ function parseICS(ics) {
 		}
 	});
 
+	Object.keys(recurringSeriesByUid).forEach((uid) => {
+		const series = recurringSeriesByUid[uid];
+		if (series.master) {
+			events.push(...expandRecurringSeries(series));
+			return;
+		}
+
+		series.orphanEvents.forEach((event) => {
+			events.push(event);
+		});
+	});
+
 	return events;
+}
+
+/**
+ * 繰り返し系列の記録を取得する。
+ * @param {Object.<string, Object>} seriesByUid UID -> 系列情報
+ * @param {string} uid イベント UID
+ * @returns {{master: Object|null, rrule: string, exdateKeys: Object.<string, boolean>, exceptions: Object.<string, Object>, orphanEvents: Object[]}} 系列情報
+ */
+function getOrCreateRecurringSeries(seriesByUid, uid) {
+	if (!seriesByUid[uid]) {
+		seriesByUid[uid] = {
+			master: null,
+			rrule: '',
+			exdateKeys: Object.create(null),
+			exceptions: Object.create(null),
+			orphanEvents: [],
+		};
+	}
+
+	return seriesByUid[uid];
+}
+
+/**
+ * 繰り返し系列の 1 件を登録する。
+ * @param {{master: Object|null, rrule: string, exdateKeys: Object.<string, boolean>, exceptions: Object.<string, Object>, orphanEvents: Object[]}} series 系列情報
+ * @param {{uid?: string, title?: string, startInfo?: {date: Date, isAllDay: boolean}, endInfo?: {date: Date, isAllDay: boolean}, recurrenceId?: {date: Date, isAllDay: boolean}|null, exdates?: {date: Date, isAllDay: boolean}[], status?: string, transparency?: GoogleAppsScript.Calendar.EventTransparency, visibility?: GoogleAppsScript.Calendar.Visibility, rrule?: string}} source 中間イベント
+ * @param {{uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}} parsed 変換済みイベント
+ * @returns {void}
+ */
+function registerRecurringSeriesEvent(series, source, parsed) {
+	if (!series || !source || !parsed) {
+		return;
+	}
+
+	if (source.rrule) {
+		series.master = parsed;
+		series.rrule = source.rrule;
+	}
+
+	(source.exdates || []).forEach((exdate) => {
+		const exdateKey = buildRecurringOccurrenceKey(exdate.date, exdate.isAllDay);
+		if (exdateKey) {
+			series.exdateKeys[exdateKey] = true;
+		}
+	});
+
+	if (source.recurrenceId) {
+		const recurrenceKey = buildRecurringOccurrenceKey(
+			source.recurrenceId.date,
+			source.recurrenceId.isAllDay,
+		);
+
+		if (recurrenceKey) {
+			if (source.status === 'CANCELLED') {
+				series.exdateKeys[recurrenceKey] = true;
+			} else {
+				series.exceptions[recurrenceKey] = parsed;
+				series.orphanEvents.push(parsed);
+			}
+		}
+		return;
+	}
+
+	if (!source.rrule && !(source.exdates && source.exdates.length > 0)) {
+		series.orphanEvents.push(parsed);
+	}
+}
+
+/**
+ * 繰り返し系列を展開する。
+ * @param {{master: {uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}, rrule: string, exdateKeys: Object.<string, boolean>, exceptions: Object.<string, {uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}>}} series 系列情報
+ * @returns {{uid: string, title: string, start: Date, end: Date, isAllDay: boolean, transparency: GoogleAppsScript.Calendar.EventTransparency, visibility: GoogleAppsScript.Calendar.Visibility}[]} 展開されたイベント配列
+ */
+function expandRecurringSeries(series) {
+	const baseEvent = series.master;
+	if (!series.rrule) {
+		return [baseEvent];
+	}
+
+	const rrule = parseRRULE(series.rrule);
+	const expanded = [];
+	const instances = getRecurrenceInstances(baseEvent.start, rrule);
+	const duration = baseEvent.end.getTime() - baseEvent.start.getTime();
+
+	instances.forEach((startTime) => {
+		const eventStart = new Date(startTime);
+		const eventKey = buildRecurringOccurrenceKey(
+			eventStart,
+			baseEvent.isAllDay,
+		);
+
+		if (!eventKey || series.exdateKeys[eventKey]) {
+			return;
+		}
+
+		const exception = series.exceptions[eventKey];
+		if (exception) {
+			expanded.push({
+				uid: buildRecurringEventUid(
+					baseEvent.uid,
+					eventStart,
+					baseEvent.isAllDay,
+				),
+				title: exception.title,
+				start: exception.start,
+				end: exception.end,
+				isAllDay: exception.isAllDay,
+				transparency: exception.transparency,
+				visibility: exception.visibility,
+			});
+			return;
+		}
+
+		expanded.push({
+			uid: buildRecurringEventUid(
+				baseEvent.uid,
+				eventStart,
+				baseEvent.isAllDay,
+			),
+			title: baseEvent.title,
+			start: eventStart,
+			end: new Date(eventStart.getTime() + duration),
+			isAllDay: baseEvent.isAllDay,
+			transparency: baseEvent.transparency,
+			visibility: baseEvent.visibility,
+		});
+	});
+
+	return expanded;
 }
 
 /**
