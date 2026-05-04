@@ -1,42 +1,49 @@
-# outlookカレンダーにGASからイベントを登録する方法
-## 概要
-Google Calendar と Outlook Calendar の 1 か月分同期用の Google Apps Script を含む。
+# Google ↔ Outlook カレンダー同期
 
-現在の同期は次の順で動作する。
+Google Apps Script で Google カレンダーと Outlook カレンダーを双方向同期するプロジェクトです。仕様の詳細は [仕様書.md](仕様書.md) を参照してください。
 
-1. Outlook の ICS を取得して Google Calendar に反映する
-2. Google Calendar の内容を Outlook に反映する
+## ファイル
 
-主な実行関数は以下の 3 つ。
+- [code.gs](code.gs) - 同期の入口、差分判定、集計ログ
+- [googleCalendarManager.gs](googleCalendarManager.gs) - Google カレンダーの取得・作成・更新・削除
+- [outlookCalendarManager.gs](outlookCalendarManager.gs) - Outlook カレンダーの取得・作成・更新・削除、ICS 展開
+- [outlookOauth2.gs](outlookOauth2.gs) - Outlook OAuth2 認証
+- [appsscript.json](appsscript.json) - GAS マニフェスト
 
-- `syncOutlookToGoogle()`
-- `syncGoogleToOutlook()`
-- `syncMonthlyCalendars()`
+## 必要な Script Properties
 
-Outlook から取り込んだイベントは Google 側で `outlook_id` を持つため、Google → Outlook の同期対象から除外される。
+- `CLIENT_ID`
+- `TENANT_ID`
+- `OUTLOOK_CALENDAR_ID`
+- `OUTLOOK_ICS_URL`
+- `REFRESH_TOKEN`
+- `ACCESS_TOKEN`
 
-Google → Outlook 側も作成・更新・削除を行い、同期結果は `created / updated / deleted` で返します。
+`OUTLOOK_CALENDAR_ID` を設定した場合はそのカレンダーを使い、未設定なら Outlook の既定カレンダーを使います。`OUTLOOK_ICS_URL` は取得できる場合に優先して使われます。
 
-Outlook へのイベント作成では、スクリプト先頭の `outlookCalendarId` を設定すると、既定の予定表ではなく指定したカレンダーに作成できる。`createEventToOutlook()` に `calendarId` を渡した場合は、それが優先される。
+## 認証
 
-```javascript
-const outlookCalendarId = 'AAMkAGI2T...AAAAAA==';
+1. `setup()` を実行して認証 URL を生成します。
+2. 表示された URL を開いて Microsoft アカウントで認証します。
+3. 返ってきた `code` を使って `authCallback()` を実行し、トークンを Script Properties に保存します。
+4. 以後は `refresh_token` による自動更新で運用します。
 
-createEventToOutlook({
-  subject: '会議',
-  start: new Date('2026-04-10T10:00:00'),
-  end: new Date('2026-04-10T11:00:00'),
-});
-```
+## 同期実行
 
-## 注意事項
-- あんまり回数が多いとレートリミットに引っかかるので、程よい頻度で使いましょう。普通は30分程度でも大丈夫だと思います。
-- こちらは、外部ライブラリを使用しない場合のコードになります。組織のポリシー上ライブラリの使用が禁じられている場合にご利用ください。
-- 仕様上、outlookの予定は特定のURLで公開する事になります。予めご了承ください。
-- このコードの作者は、このコードの実行による一切の責任を負いません。コードを読み、何が起きるか分かったうえでご利用ください。
-- ICS ファイルに含まれる繰り返しイベント（RRULE）は Google Calendar 登録時に個別イベントとして展開されます（FREQ=DAILY/WEEKLY/MONTHLY/YEARLY、UNTIL、INTERVAL、BYDAY に対応）。
+- `syncCalendars()` を実行すると、JST 基準の「当日 00:00:00 から 1 か月後 23:59:59.999」までのイベントを双方向同期します。
+- 30 分間隔で回す場合は `installThirtyMinuteTrigger()` を 1 回実行します。
+
+## 運用メモ
+
+- 予定の関連付けは description 内の `google_id:` / `outlook_id:` で行います。
+- 逆流防止のため、同期元の ID を持つイベントは元カレンダーへ戻しません。
+- 繰り返し予定は展開済みイベントとして扱い、`Repeat:` を付与します。
+- タイムゾーンは `Asia/Tokyo` に統一しています。
+
 ## セットアップ方法
+
 ### [ステップ1]　MicrosoftのAPIの準備
+
 1. https://portal.azure.com/ にアクセスし、自分のMicrosoftアカウントでログインする。
 2. (任意)ログイン時に、右上の自分のアカウントのところに、自分の個人アカウントで参加している別プロジェクトの名前等が表示された場合は、アカウントアイコンをクリックして、「ディレクトリの切り替え」をクリックする。切り替わった画面にて、「既定のディレクトリ」に切り替えボタンを押す。
 3. 左上の三本線をクリックし、「Microsoft Entra ID」をクリックし、画面中央上の「＋追加」から「アプリを登録」をクリックする。
@@ -47,18 +54,24 @@ createEventToOutlook({
   - ディレクトリ (テナント) ID
 7. 左側のメニューから、「証明書とシークレット」を選択し、「クライアントシークレット」モードになっていることを確認したうえで「+新しいクライアントシークレット」ボタンから資格情報を作成する。説明と有効期限は任意の内容。
 8. 作成したクライアントシークレットの「値」をメモする。
+
 ### [ステップ2] Outlook カレンダーのICS URLの準備
+
 1. https://outlook.live.com/calendar/view/month にアクセスし、自分のMicrosoftアカウントでログインする。
 2. 画面左上の「表示」タブに移動し、一番右にお「⚙予定表の設定」をクリックする。ただし、画面幅によっては歯車のみ表示されるため、注意。
 3. 開いた設定画面の「予定表＞共有予定表」を開く。
 4. 「予定表を共有する」から、Googleカレンダーと同期したいカレンダーを選択し、「全ての詳細を閲覧可能」にして公開する。
 5. HTMLとICSのURLが作られるので、ICSのURLをメモする。
+
 ### [ステップ3] Outlook カレンダーIDの準備
+
 1. https://developer.microsoft.com/en-us/graph/graph-explorer にアクセスし、自分のMicrosoftアカウントでログインする。この際に、アクセス許可が求められた場合は許可する。
 2. 画面右上のリクエスト入力画面で、「GET v1.0 https://graph.microsoft.com/v1.0/me/calendars」と入力する。
 3. すぐ下の「Modify Permissions」をクリックし、「Calendars.Read」の横にある「Consent」をクリックして権限を許可する。
 4. 2で入力したリクエストURLの右にある「▷Run query」をクリックし、下に緑色で「OK - 200 - xxxms」などと表示されれば、OK。さらに下の「Response preview」に自分のカレンダーの一覧が出るので、nameパラメータから、予定を管理したいカレンダー(基本的にはICSのURLを作成したカレンダー)のidパラメータの内容をメモする。
+
 ### [ステップ4] Google Apps Scriptの準備
+
 1. Google スプレッドシートを 1 つ新規作成し、そのスプレッドシートに紐づく形で Google Apps Script を開く。
 2. このリポジトリの `code.gs`、`googleEventsManager.gs`、`outlookEventsManager.gs` の内容を、GAS プロジェクトにそれぞれコピーする。
 3. `outlookEventsManager.gs` を開き、`OUTLOOK_CONFIG.calendarId`、`OUTLOOK_CONFIG.clientId` を自分の値に置き換える。他はそのままでよい。
