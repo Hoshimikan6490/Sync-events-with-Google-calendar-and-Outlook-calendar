@@ -895,6 +895,8 @@ function normalizeOutlookCalendarEvent_(event) {
 		id: event.id,
 		subject: event.subject || '',
 		description: event.body && event.body.content ? event.body.content : '',
+		location:
+			(event.location && event.location.displayName) || event.location || '',
 		start: event.start || {},
 		end: event.end || {},
 		isAllDay: Boolean(event.isAllDay),
@@ -917,9 +919,16 @@ function normalizeOutlookEvent_(event) {
 	const endValue = endInfo.raw || '';
 	const isAllDay = startInfo.allDay || endInfo.allDay;
 
+	// ICS の TRANSP と CLASS を抽出してマッピング
+	const transp = getIcsFieldValue_(event, 'transp');
+	const classValue = getIcsFieldValue_(event, 'class');
+	const showAs = mapIcsTranspToShowAs_(transp);
+	const sensitivity = mapIcsClassToSensitivity_(classValue);
+
 	return {
 		id: event.uid || event.id || Utilities.getUuid(),
 		subject: event.summary || '',
+		location: event.location || '',
 		description: event.description || '',
 		start: isAllDay
 			? {
@@ -939,8 +948,8 @@ function normalizeOutlookEvent_(event) {
 					dateTime: normalizeIcsDateTime_(endValue),
 					timeZone: SYNC_TIMEZONE,
 				},
-		showAs: 'busy',
-		sensitivity: 'normal',
+		showAs: showAs,
+		sensitivity: sensitivity,
 		isAllDay: Boolean(isAllDay),
 		repeat: Number(event.repeat || 0),
 		recurrenceId: recurrenceId ? normalizeIcsDateTime_(recurrenceId) : '',
@@ -986,6 +995,12 @@ function buildOutlookCalendarResource_(eventData) {
 			contentType: 'text',
 			content: eventData.description || '',
 		},
+		// Graph API expects location object
+		location: eventData.location
+			? typeof eventData.location === 'string'
+				? { displayName: eventData.location }
+				: { displayName: eventData.location.displayName || '' }
+			: undefined,
 		start: eventData.start || {
 			dateTime: eventData.startDateTime || '',
 			timeZone: SYNC_TIMEZONE,
@@ -995,8 +1010,14 @@ function buildOutlookCalendarResource_(eventData) {
 			timeZone: SYNC_TIMEZONE,
 		},
 		isAllDay: Boolean(eventData.isAllDay),
-		showAs: eventData.showAs || 'busy',
-		sensitivity: eventData.sensitivity || 'normal',
+		showAs:
+			eventData.showAs ||
+			mapTransparencyToShowAs(eventData.transparency) ||
+			'busy',
+		sensitivity:
+			eventData.sensitivity ||
+			mapVisibilityToSensitivity(eventData.visibility) ||
+			'normal',
 	};
 }
 
@@ -1013,4 +1034,33 @@ function buildApiDateTimeInSyncTimezone_(value) {
 		"yyyy-MM-dd'T'HH:mm:ss",
 	);
 	return dateTimeText;
+}
+
+/**
+ * ICS の TRANSP 値を Outlook Graph API の showAs 値にマッピングする。
+ * @param {string} transp ICS の TRANSP 値（'TRANSPARENT' or 'OPAQUE'）
+ * @returns {string} Outlook の showAs 値（'free' or 'busy'）
+ */
+function mapIcsTranspToShowAs_(transp) {
+	const value = String(transp || '').toUpperCase();
+	if (value === 'TRANSPARENT') {
+		return 'free';
+	}
+	return 'busy'; // OPAQUE がデフォルト、不明な値も busy
+}
+
+/**
+ * ICS の CLASS 値を Outlook Graph API の sensitivity 値にマッピングする。
+ * @param {string} classValue ICS の CLASS 値（'PUBLIC', 'PRIVATE', 'CONFIDENTIAL'）
+ * @returns {string} Outlook の sensitivity 値（'normal', 'private', 'confidential'）
+ */
+function mapIcsClassToSensitivity_(classValue) {
+	const value = String(classValue || '').toUpperCase();
+	if (value === 'PRIVATE') {
+		return 'private';
+	}
+	if (value === 'CONFIDENTIAL') {
+		return 'confidential';
+	}
+	return 'normal'; // PUBLIC がデフォルト、不明な値も normal
 }

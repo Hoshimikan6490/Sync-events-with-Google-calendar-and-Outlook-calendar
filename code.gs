@@ -60,7 +60,11 @@ function syncGoogleToOutlook(googleEvents, outlookMaps, syncedIdSets, stats) {
 		if (!hasSyncedOutlookEvent || !targetEvent) {
 			const created = createOutlookEvent(payload);
 			if (created && created.id) {
-				logAction('Google → Outlook', 'create', googleEvent.summary);
+				logAction(
+					'Google → Outlook',
+					'create',
+					googleEvent.subject || 'イベント',
+				);
 				stats.googleToOutlook.create += 1;
 				syncedGoogleEventIds.add(googleEvent.id);
 			}
@@ -91,7 +95,11 @@ function syncGoogleToOutlook(googleEvents, outlookMaps, syncedIdSets, stats) {
 				content: newDescription,
 			};
 			updateOutlookEvent(targetEvent.id, nextPayload);
-			logAction('Google → Outlook', 'update', googleEvent.summary);
+			logAction(
+				'Google → Outlook',
+				'update',
+				googleEvent.subject || 'イベント',
+			);
 			stats.googleToOutlook.update += 1;
 		}
 	}
@@ -108,7 +116,7 @@ function syncGoogleToOutlook(googleEvents, outlookMaps, syncedIdSets, stats) {
 			logAction(
 				'Google → Outlook',
 				'delete',
-				outlookEvent.subject || outlookEvent.summary || 'イベント',
+				outlookEvent.subject || 'イベント',
 			);
 			stats.googleToOutlook.delete += 1;
 		}
@@ -150,7 +158,7 @@ function syncOutlookToGoogle(outlookEvents, googleMaps, syncedIdSets, stats) {
 				logAction(
 					'Outlook → Google',
 					'create',
-					outlookEvent.subject || outlookEvent.summary || 'イベント',
+					outlookEvent.subject || 'イベント',
 				);
 				stats.outlookToGoogle.create += 1;
 				syncedOutlookEventIds.add(outlookEvent.id);
@@ -170,7 +178,7 @@ function syncOutlookToGoogle(outlookEvents, googleMaps, syncedIdSets, stats) {
 			logAction(
 				'Outlook → Google',
 				'update',
-				outlookEvent.subject || outlookEvent.summary || 'イベント',
+				outlookEvent.subject || 'イベント',
 			);
 			stats.outlookToGoogle.update += 1;
 		}
@@ -188,7 +196,7 @@ function syncOutlookToGoogle(outlookEvents, googleMaps, syncedIdSets, stats) {
 			logAction(
 				'Outlook → Google',
 				'delete',
-				googleEvent.subject || googleEvent.summary || 'イベント',
+				googleEvent.subject || 'イベント',
 			);
 			stats.outlookToGoogle.delete += 1;
 		}
@@ -423,12 +431,12 @@ function buildOutlookPayloadFromGoogleEvent_(googleEvent, repeat) {
 		(googleEvent.end && googleEvent.end.date),
 	);
 	const startValue =
-		googleEvent.startDateTime ||
 		(googleEvent.start &&
-			(googleEvent.start.dateTime || googleEvent.start.date));
+			(googleEvent.start.dateTime || googleEvent.start.date)) ||
+		'';
 	const endValue =
-		googleEvent.endDateTime ||
-		(googleEvent.end && (googleEvent.end.dateTime || googleEvent.end.date));
+		(googleEvent.end && (googleEvent.end.dateTime || googleEvent.end.date)) ||
+		'';
 	const start = isAllDay
 		? {
 				dateTime: toOutlookAllDayDateTime_(startValue),
@@ -449,7 +457,7 @@ function buildOutlookPayloadFromGoogleEvent_(googleEvent, repeat) {
 			};
 
 	return {
-		subject: googleEvent.summary || '',
+		subject: googleEvent.subject || '',
 		body: {
 			contentType: 'text',
 			content: buildOutlookDescription(googleEvent, repeat, googleEvent.id),
@@ -457,8 +465,13 @@ function buildOutlookPayloadFromGoogleEvent_(googleEvent, repeat) {
 		start,
 		end,
 		isAllDay: isAllDay,
-		showAs: mapGoogleTransparencyToOutlook_(googleEvent.transparency),
-		sensitivity: mapGoogleVisibilityToOutlook_(googleEvent.visibility),
+		showAs:
+			googleEvent.showAs ||
+			mapGoogleTransparencyToOutlook_(googleEvent.transparency),
+		sensitivity:
+			googleEvent.sensitivity ||
+			mapGoogleVisibilityToOutlook_(googleEvent.visibility),
+		location: googleEvent.location || '',
 	};
 }
 
@@ -483,7 +496,7 @@ function buildGooglePayloadFromOutlookEvent_(outlookEvent, repeat) {
 			: buildDefaultGoogleEndFromStart_(safeStart);
 
 	return {
-		summary: outlookEvent.subject || '',
+		subject: outlookEvent.subject || '',
 		description: buildGoogleDescription(outlookEvent, repeat, outlookEvent.id),
 		start: safeStart,
 		end: safeEnd,
@@ -684,10 +697,16 @@ function normalizeOutlookEvent_(event) {
 		event.end && (event.end.dateTime || event.end.date)
 			? event.end.dateTime || event.end.date
 			: '';
+	const locationValue = event.location
+		? typeof event.location === 'string'
+			? event.location
+			: event.location.displayName || ''
+		: '';
 
 	return {
 		subject: event.subject || '',
 		body: event.body && event.body.content ? event.body.content : '',
+		location: locationValue,
 		start: startValue,
 		end: endValue,
 		isAllDay: Boolean(event.isAllDay || (event.start && event.start.date)),
@@ -702,21 +721,25 @@ function normalizeOutlookEvent_(event) {
  * @returns {Object} 正規化されたイベント情報
  */
 function normalizeGoogleEvent_(event) {
+	const isAllDay = Boolean(
+		(event.start && event.start.date) || (event.end && event.end.date),
+	);
+
 	return {
-		summary: event.summary || '',
+		subject: event.subject || '',
 		description: event.description || '',
+		location: event.location || '',
 		start:
+			(event.start && (event.start.dateTime || event.start.date)) ||
 			event.startDateTime ||
-			(event.start && event.start.dateTime) ||
-			(event.start && event.start.date) ||
 			'',
 		end:
+			(event.end && (event.end.dateTime || event.end.date)) ||
 			event.endDateTime ||
-			(event.end && event.end.dateTime) ||
-			(event.end && event.end.date) ||
 			'',
-		transparency: event.transparency || '',
-		visibility: event.visibility || '',
+		isAllDay: isAllDay,
+		showAs: event.showAs || event.transparency || '',
+		sensitivity: event.sensitivity || event.visibility || '',
 	};
 }
 

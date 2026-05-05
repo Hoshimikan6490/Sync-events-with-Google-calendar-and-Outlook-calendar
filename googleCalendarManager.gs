@@ -120,17 +120,22 @@ function normalizeGoogleCalendarEvent_(event) {
 	const startNormalized = normalizeGoogleDateTime_(event.start);
 	const endNormalized = normalizeGoogleDateTime_(event.end);
 
+	// 内部表現は Outlook 仕様をメインとする（subject, showAs, sensitivity など）
+	const isAllDay = Boolean(startNormalized.start && startNormalized.start.date);
 	return {
 		id: event.id,
-		summary: event.summary || '',
+		subject: event.summary || '',
 		description: event.description || '',
-		startDateTime: startNormalized.dateTime,
-		endDateTime: endNormalized.dateTime,
-		timeZone: startNormalized.timeZone || SYNC_TIMEZONE,
+		// location は Outlook 側で使う文字列形式を採用
+		location:
+			event.location || (event.location && event.location.displayName) || '',
+		// start/end は既に正規化済みのオブジェクトをそのまま使う
 		start: startNormalized.start || {},
 		end: endNormalized.start || {},
-		transparency: event.transparency || 'opaque',
-		visibility: event.visibility || 'default',
+		isAllDay: isAllDay,
+		// Google の透明性/表示設定を Outlook の showAs/sensitivity に変換
+		showAs: mapTransparencyToShowAs(event.transparency || 'opaque'),
+		sensitivity: mapVisibilityToSensitivity(event.visibility || 'default'),
 		raw: event,
 	};
 }
@@ -178,15 +183,24 @@ function normalizeGoogleDateTime_(googleDateTime) {
  * @returns {Object} API に渡すリソースオブジェクト（Google形式）
  */
 function buildGoogleCalendarResource_(eventData) {
+	// eventData は Outlook 仕様（subject, showAs, sensitivity, description, location）で渡される前提
 	const resource = {
-		summary: eventData.summary || '',
+		summary: eventData.subject || '',
 		description: eventData.description || '',
-		transparency: eventData.transparency || 'opaque',
-		visibility: eventData.visibility || 'default',
+		transparency: mapShowAsToTransparency(eventData.showAs) || 'opaque',
+		visibility: mapSensitivityToVisibility(eventData.sensitivity) || 'default',
 	};
 
 	const timeZone = eventData.timeZone || SYNC_TIMEZONE;
 
+	// location (Google は単純な文字列)。内部は Outlook 仕様の文字列を想定する
+	if (eventData.location) {
+		if (typeof eventData.location === 'string') {
+			resource.location = eventData.location;
+		} else if (eventData.location.displayName) {
+			resource.location = eventData.location.displayName;
+		}
+	}
 	if (eventData.start && eventData.start.date) {
 		resource.start = { date: eventData.start.date, timeZone: timeZone };
 	} else if (eventData.start && eventData.start.dateTime) {
@@ -373,4 +387,41 @@ function convertUtcToLocalDateTime_(utcDateTime, timeZone) {
 
 	// 指定タイムゾーンでのローカル時刻にフォーマット
 	return Utilities.formatDate(date, timeZone, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+/**
+ * map helpers: Outlook <-> Google
+ */
+function mapTransparencyToShowAs(transparency) {
+	// Google: 'transparent' (free) / 'opaque' (busy)
+	if ((transparency || '').toLowerCase() === 'transparent') {
+		return 'free';
+	}
+	return 'busy';
+}
+
+function mapShowAsToTransparency(showAs) {
+	// Outlook showAs: 'free','busy','tentative','oof' => Google transparency
+	if (!showAs) return undefined;
+	const s = String(showAs).toLowerCase();
+	if (s === 'free') return 'transparent';
+	return 'opaque';
+}
+
+function mapVisibilityToSensitivity(visibility) {
+	// Google visibility: 'default','public','private','confidential'
+	// Outlook sensitivity: 'normal','personal','private','confidential'
+	const v = (visibility || '').toLowerCase();
+	if (v === 'private') return 'private';
+	if (v === 'confidential') return 'confidential';
+	if (v === 'public') return 'normal';
+	return 'normal';
+}
+
+function mapSensitivityToVisibility(sensitivity) {
+	const s = (sensitivity || '').toLowerCase();
+	if (s === 'private') return 'private';
+	if (s === 'confidential') return 'confidential';
+	if (s === 'personal') return 'default';
+	return 'default';
 }
