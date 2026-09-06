@@ -88,15 +88,48 @@ Graph API の設定は以下の通りです。
 
 取得後は内部表現へ正規化し、同期ウィンドウとの重なりで再フィルタします。
 
-### イベント作成
+## 正規化
 
-`createOutlookEvent(eventData)`
+### `normalizeOutlookCalendarEvent(event)`
 
-Microsoft Graph の `POST /events` でイベントを作成します。作成時には、自動的に `google_id:`で始まるgoogleカレンダーのイベントのsyncKeyが追加されるようにします。
+Graph API のイベントを内部表現に変換します。
 
-### イベント編集
+主な対応は次の通りです。
 
-`updateOutlookEvent(eventId, eventData)`
+- `subject` → `subject`
+- `body.content` → `description`
+- `location.displayName` → `location`
+- `start` / `end` → そのまま保持
+- `showAs` / `sensitivity` を保持
+- `uid` は Graph の `id` を使う
+- `occurrenceDate` を開始時刻から生成する
+
+### `normalizeOutlookCalendarDateTime()`
+
+Outlook から来た日時を Google 側へ渡しやすい形に整えます。
+
+## イベント ID の取得
+
+**統一ルール**: Outlook イベント ID の取得方法はコード内で統一します。
+
+**Graph API から取得する場合（必須パターン）**:
+```javascript
+// Graph API レスポンスの id フィールドを使用
+var id = event.id;
+```
+
+- **常にこのパターンを使用** してコード内で統一する
+- 他の方法での ID 抽出は禁止
+
+これらの ID は以降の同期キーや補助情報（`outlook_id:` 記載）に使用されます。
+
+## 作成・更新・削除
+
+### `createOutlookEvent(eventData)`
+
+Microsoft Graph の `POST /events` でイベントを作成します。
+
+### `updateOutlookEvent(eventId, eventData)`
 
 Microsoft Graph の `PATCH /events/{id}` で更新します。更新時には、概要欄の一番最後に`google_id:`で始まるgoogleカレンダーのイベントのsyncKeyがgoogleのイベント情報に基づいて最新の状態に更新されるようにします。ただし、syncKeyの更新の際は、概要欄にはsyncKeyは必ず最大１つだけになるようにし、２つ以上にはならないように適切に置換処理をします。
 
@@ -104,25 +137,75 @@ Microsoft Graph の `PATCH /events/{id}` で更新します。更新時には、
 
 `deleteOutlookEvent(eventId)`
 
-Microsoft Graph の `DELETE /events/{id}` で削除します。現在の同期ロジックでは削除タスクも実行し、処理順は `delete -> update -> create` です。
+Microsoft Graph の `DELETE /events/{id}` で削除します。現在の同期ロジックでは削除タスクも実行します。
 
-## 留意事項
+## リソース構築
 
-- 同期の開始点は日始まりではなく実行時点です
-- 同期ウィンドウの範囲内において、同期元のカレンダーでイベントが削除されると、同期先のカレンダーでも削除されます
-- 認証トークンなどの機密情報は Logger に出力してはいけません
-- このドキュメントを含むすべてのドキュメントに書かれた関数は一例であり、実装上必要な関数は任意で作成・編集・削除してください。ただし、それらの変更は原則 google と outlook の仕様書に反映させてください
-- 各関数は、以下の形式で関数の解説を付けてください
-```js
-/**
- * 関数の解説
- * @param {引数の型} parameter_name 引数の説明 
- * @returns {返り値の型} 返り値の説明
- */
-function FUNCTION_NAME(PARAMETERS) {
-	return RETURNS
-}
-```
+### `buildOutlookCalendarResource(eventData)`
+
+内部表現から Graph API 用のイベントリソースを組み立てます。
+
+- `subject` を設定する
+- `body.contentType` は `text`
+- `location` は `displayName` 付きオブジェクトにする
+- `start` / `end` は `dateTime` と `timeZone` を持つ形にする
+- `isAllDay` を設定する
+- `showAs` と `sensitivity` を設定する
+
+### `buildOutlookDescription(event, googleId)`
+
+Outlook 側の description に Google 側との関連付け情報を追記します。
+
+- 既存の `google_id:` / `Repeat:` を除去する
+- `google_id:` を追記する
+
+## OAuth2
+
+### `setup()`
+
+PKCE 用の `code_verifier` を生成し、認可 URL をログへ出力します。
+
+### `authCallback()`
+
+保存済みの認可コードをトークンに交換し、`ACCESS_TOKEN` と `REFRESH_TOKEN` を保存します。
+
+### `refreshAccessToken()`
+
+`REFRESH_TOKEN` を使って `ACCESS_TOKEN` を更新します。401 が返った場合の再取得にも使われます。
+
+### `generateCodeVerifier()` / `generateCodeChallenge()`
+
+PKCE の `S256` 用コードを生成します。
+
+## Script Properties
+
+現在の実装で参照する主なキーは次の通りです。
+
+- `CLIENT_ID`
+- `TENANT_ID`
+- `OUTLOOK_CALENDAR_ID`
+- `AUTH_CODE`
+- `OUTLOOK_CODE_VERIFIER`
+- `REFRESH_TOKEN`
+- `ACCESS_TOKEN`
+
+`OUTLOOK_CALENDAR_ID` が未設定なら既定の Outlook カレンダーを使います。
+
+## 変換ルール
+
+### `showAs` の扱い
+
+- Graph API の `showAs` を内部表現の空き状況として保持する
+- 同期時は Google 側の `transparency` と相互変換する
+
+### `sensitivity` の扱い
+
+- Graph API の `sensitivity` を内部表現に保持する
+- 同期時は Google 側の `visibility` と相互変換する
+
+### 日時の UTC 正規化
+
+Graph API から取得したイベントの `start` / `end` は `dateTime` + `timeZone` の組み合わせなので、UTC の RFC3339 Z 形式（例: `2026-05-09T10:00:00Z`）に変換してから内部処理を行います。
 
 ## 参考
 

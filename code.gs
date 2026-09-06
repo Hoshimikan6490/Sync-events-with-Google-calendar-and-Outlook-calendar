@@ -39,7 +39,7 @@ function syncCalendars() {
 /**
  * Google カレンダーから Outlook へイベントを同期する（occurrence 単位）。
  * @param {Array<Object>} googleEvents Google 側の occurrence 配列
- * @param {Object} outlookMaps Outlook 側の参照マップ (byGoogleSyncKey, byOutlookId)
+ * @param {Object} outlookMaps Outlook 側の参照マップ (byGoogleSyncKey, byOutlookSyncKey)
  * @param {Object} stats 同期集計オブジェクト
  * @returns void
  */
@@ -67,15 +67,15 @@ function buildGoogleToOutlookSyncTasks_(googleEvents, outlookMaps) {
 		// 1. syncKey で直接検索
 		let outlookEvent = outlookMaps.byGoogleSyncKey.get(googleSyncKey);
 
-		// 2. 見つからない場合、description から outlook_id を抽出して検索
+		// 2. 見つからない場合、description から outlookSyncKey を抽出して検索
 		if (!outlookEvent) {
 			const ids = parseIds(googleEvent.description);
 			if (ids.googleSyncKey && ids.googleSyncKey !== googleSyncKey) {
 				googleSyncKeys.add(ids.googleSyncKey);
 			}
-			if (ids.outlookId) {
-				// description に記録されている Outlook ID で検索
-				outlookEvent = outlookMaps.byOutlookId?.get(ids.outlookId);
+			if (ids.outlookSyncKey) {
+				// description に記録されている Outlook Sync Key で検索
+				outlookEvent = outlookMaps.byOutlookSyncKey?.get(ids.outlookSyncKey);
 			}
 			if (!outlookEvent && ids.googleSyncKey) {
 				outlookEvent = outlookMaps.byGoogleSyncKey.get(ids.googleSyncKey);
@@ -128,7 +128,7 @@ function buildGoogleToOutlookSyncTasks_(googleEvents, outlookMaps) {
 /**
  * Outlook から Google へイベントを同期する（occurrence 単位）。
  * @param {Array<Object>} outlookEvents Outlook 側の occurrence 配列
- * @param {Object} googleMaps Google 側の参照マップ (byOutlookSyncKey, byGoogleId)
+ * @param {Object} googleMaps Google 側の参照マップ (byOutlookSyncKey, byGoogleSyncKey)
  * @param {Object} stats 同期集計オブジェクト
  * @returns void
  */
@@ -155,15 +155,15 @@ function buildOutlookToGoogleSyncTasks_(outlookEvents, googleMaps) {
 		// 1. syncKey で直接検索
 		let googleEvent = googleMaps.byOutlookSyncKey.get(outlookSyncKey);
 
-		// 2. 見つからない場合、description から google_id を抽出して検索
+		// 2. 見つからない場合、description から googleSyncKey を抽出して検索
 		if (!googleEvent) {
 			const ids = parseIds(outlookEvent.description);
 			if (ids.outlookSyncKey && ids.outlookSyncKey !== outlookSyncKey) {
 				outlookSyncKeys.add(ids.outlookSyncKey);
 			}
-			if (ids.googleId) {
-				// description に記録されている Google ID で検索
-				googleEvent = googleMaps.byGoogleId?.get(ids.googleId);
+			if (ids.googleSyncKey) {
+				// description に記録されている Google Sync Key で検索
+				googleEvent = googleMaps.byGoogleSyncKey?.get(ids.googleSyncKey);
 			}
 			if (!googleEvent && ids.outlookSyncKey) {
 				googleEvent = googleMaps.byOutlookSyncKey.get(ids.outlookSyncKey);
@@ -243,7 +243,6 @@ function executeGoogleToOutlookTasks_(tasks, stats) {
 					Object.assign({}, task.sourceEvent, {
 						description: buildGoogleDescription(
 							task.sourceEvent,
-							created.id,
 							generateOutlookSyncKey(created),
 						),
 					}),
@@ -366,61 +365,61 @@ function generateOutlookSyncKey(event) {
 /**
  * Google イベント配列から syncKey をキーにした Map を構築する。
  * @param {Array<Object>} googleEvents Google 側のイベント配列
- * @returns {Object} { bySyncKey, byGoogleId } のマップオブジェクト
+ * @returns {Object} { bySyncKey, byGoogleSyncKey, byGoogleSyncKey } のマップオブジェクト
  */
 function buildGoogleMaps(googleEvents) {
 	const bySyncKey = new Map();
 	const byOutlookSyncKey = new Map();
-	const byGoogleId = new Map();
+	const byGoogleSyncKey = new Map();
 
 	for (const event of googleEvents) {
 		const syncKey = generateGoogleSyncKey(event);
 		bySyncKey.set(syncKey, event);
 
-		// description から google_id を抽出してセカンダリマップを構築
+		// description から googleSyncKey を抽出してセカンダリマップを構築
 		const ids = parseIds(event.description);
 		if (ids.outlookSyncKey) {
 			byOutlookSyncKey.set(ids.outlookSyncKey, event);
 		}
-		if (ids.googleId) {
-			byGoogleId.set(ids.googleId, event);
+		if (ids.googleSyncKey) {
+			byGoogleSyncKey.set(ids.googleSyncKey, event);
 		}
 	}
 
-	return { bySyncKey, byOutlookSyncKey, byGoogleId };
+	return { bySyncKey, byOutlookSyncKey, byGoogleSyncKey };
 }
 
 /**
  * Outlook イベント配列から syncKey をキーにした Map を構築する。
  * @param {Array<Object>} outlookEvents Outlook 側のイベント配列
- * @returns {Object} { bySyncKey, byOutlookId } のマップオブジェクト
+ * @returns {Object} { bySyncKey, byOutlookSyncKey } のマップオブジェクト
  */
 function buildOutlookMaps(outlookEvents) {
 	const bySyncKey = new Map();
 	const byGoogleSyncKey = new Map();
-	const byOutlookId = new Map();
+	const byOutlookSyncKey = new Map();
 
 	for (const event of outlookEvents) {
 		const syncKey = generateOutlookSyncKey(event);
 		bySyncKey.set(syncKey, event);
 
-		// description から outlook_id を抽出してセカンダリマップを構築
+		// description から outlookSyncKey を抽出してセカンダリマップを構築
 		const ids = parseIds(event.description);
 		if (ids.googleSyncKey) {
 			byGoogleSyncKey.set(ids.googleSyncKey, event);
 		}
-		if (ids.outlookId) {
-			byOutlookId.set(ids.outlookId, event);
+		if (ids.outlookSyncKey) {
+			byOutlookSyncKey.set(ids.outlookSyncKey, event);
 		}
 	}
 
-	return { bySyncKey, byGoogleSyncKey, byOutlookId };
+	return { bySyncKey, byGoogleSyncKey, byOutlookSyncKey };
 }
 
 /**
  * イベントの説明文から同期用の ID 情報を抽出する。
  * @param {string} description イベントの説明テキスト
- * @returns {{outlookId:string,googleId:string,outlookSyncKey:string,googleSyncKey:string}} 抽出した ID 情報
+ * @returns {{outlookSyncKey:string,googleSyncKey:string}} 抽出した ID 情報
  */
 function parseIds(description) {
 	let text = normalizeDescriptionText_(description) || '';
@@ -441,12 +440,11 @@ function parseIds(description) {
 		return tail.split(/\r?\n|\\n/)[0].trim();
 	}
 
-	const outlookId = safeSplitField(text, 'outlook_id:');
-	const googleId = safeSplitField(text, 'google_id:');
-	const outlookSyncKey = safeSplitField(text, 'outlooksynckey:');
-	const googleSyncKey = safeSplitField(text, 'googlesynckey:');
+	// 新仕様: description 内の同期メタは `googleSyncKey:` / `outlookSyncKey:` を使用する
+	const outlookSyncKey = safeSplitField(text, 'outlookSyncKey:');
+	const googleSyncKey = safeSplitField(text, 'googleSyncKey:');
 
-	return { outlookId, googleId, outlookSyncKey, googleSyncKey };
+	return { outlookSyncKey, googleSyncKey };
 }
 
 /**
@@ -474,17 +472,20 @@ function normalizeDescriptionText_(description) {
 /**
  * Google イベントに対応する Outlook 側のターゲットイベントを解決する。
  * @param {Object} googleEvent Google 側のイベントオブジェクト
- * @param {{outlookId:string,googleId:string}} ids 抽出済み ID 情報
+ * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
  * @param {Object} outlookMaps Outlook 側の参照マップ
  * @returns {Object|null} 対応する Outlook イベント、無ければ null
  */
 function resolveOutlookTargetEvent_(googleEvent, ids, outlookMaps) {
-	if (ids.outlookId && outlookMaps.byId.has(ids.outlookId)) {
-		return outlookMaps.byId.get(ids.outlookId);
+	if (
+		ids.outlookSyncKey &&
+		outlookMaps.byOutlookSyncKey.has(ids.outlookSyncKey)
+	) {
+		return outlookMaps.byOutlookSyncKey.get(ids.outlookSyncKey);
 	}
 
-	if (outlookMaps.byGoogleId.has(googleEvent.id)) {
-		const candidates = outlookMaps.byGoogleId.get(googleEvent.id);
+	if (outlookMaps.byGoogleSyncKey.has(ids.googleSyncKey)) {
+		const candidates = outlookMaps.byGoogleSyncKey.get(ids.googleSyncKey);
 		if (Array.isArray(candidates) && candidates.length > 0) {
 			return candidates[0];
 		}
@@ -496,17 +497,17 @@ function resolveOutlookTargetEvent_(googleEvent, ids, outlookMaps) {
 /**
  * Outlook イベントに対応する Google 側のターゲットイベントを解決する。
  * @param {Object} outlookEvent Outlook 側のイベントオブジェクト
- * @param {{outlookId:string,googleId:string}} ids 抽出済み ID 情報
+ * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
  * @param {Object} googleMaps Google 側の参照マップ
  * @returns {Object|null} 対応する Google イベント、無ければ null
  */
 function resolveGoogleTargetEvent_(outlookEvent, ids, googleMaps) {
-	if (ids.googleId && googleMaps.byId.has(ids.googleId)) {
-		return googleMaps.byId.get(ids.googleId);
+	if (ids.googleSyncKey && googleMaps.byGoogleSyncKey.has(ids.googleSyncKey)) {
+		return googleMaps.byGoogleSyncKey.get(ids.googleSyncKey);
 	}
 
-	if (googleMaps.byOutlookId.has(outlookEvent.id)) {
-		const candidates = googleMaps.byOutlookId.get(outlookEvent.id);
+	if (googleMaps.byOutlookSyncKey.has(outlookEvent.id)) {
+		const candidates = googleMaps.byOutlookSyncKey.get(outlookEvent.id);
 		if (Array.isArray(candidates) && candidates.length > 0) {
 			return candidates[0];
 		}
@@ -710,7 +711,6 @@ function buildGooglePayloadFromOutlookEvent_(outlookEvent) {
 		subject: outlookEvent.subject || '',
 		description: buildGoogleDescription(
 			outlookEvent,
-			outlookEvent.id,
 			generateOutlookSyncKey(outlookEvent),
 		),
 		start: safeStart,
@@ -935,10 +935,7 @@ function stripSyncMetadataFromText_(text) {
 		.filter((line) => {
 			const trimmed = line.trim();
 			return (
-				!/^google_id:/i.test(trimmed) &&
-				!/^outlook_id:/i.test(trimmed) &&
-				!/^googlesynckey:/i.test(trimmed) &&
-				!/^outlooksynckey:/i.test(trimmed)
+				!/^googleSyncKey:/i.test(trimmed) && !/^outlookSyncKey:/i.test(trimmed)
 			);
 		})
 		.join('\n')
@@ -1083,14 +1080,13 @@ function toIsoStringInTimeZone_(value) {
 /**
  * Google イベントの説明に Outlook の ID を埋め込みて更新する。
  * @param {Object} googleEvent Google イベントオブジェクト
- * @param {string} outlookId Outlook のイベント ID
+ * @param {string} outlookSyncKey Outlook のイベント同期キー
  * @returns void
  */
-function updateGoogleEventWithOutlookId_(googleEvent, outlookId) {
+function updateGoogleEventWithOutlookSyncKey_(googleEvent, outlookSyncKey) {
 	const description = buildGoogleDescription(
 		{ description: googleEvent.description },
-		outlookId,
-		'',
+		outlookSyncKey,
 	);
 	updateGoogleEvent(
 		googleEvent.id,
@@ -1103,13 +1099,13 @@ function updateGoogleEventWithOutlookId_(googleEvent, outlookId) {
 /**
  * Outlook イベントの説明に Google の ID を埋め込みて更新する。
  * @param {Object} outlookEvent Outlook イベントオブジェクト
- * @param {string} googleId Google のイベント ID
+ * @param {string} googleSyncKey Google のイベント同期キー
  * @returns void
  */
-function updateOutlookEventWithGoogleId_(outlookEvent, googleId) {
+function updateOutlookEventWithGoogleSyncKey_(outlookEvent, googleSyncKey) {
 	const bodyContent = buildOutlookDescription(
 		{ description: outlookEvent.description },
-		googleId,
+		googleSyncKey,
 		'',
 	);
 	updateOutlookEvent(

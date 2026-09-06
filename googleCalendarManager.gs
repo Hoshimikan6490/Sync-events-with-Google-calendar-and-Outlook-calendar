@@ -75,39 +75,32 @@ function deleteGoogleEvent(eventId) {
 }
 
 /**
- * 説明文から埋め込まれた google_id を抽出する。
+ * 説明文から埋め込まれた googleSyncKey を抽出する。
  * @param {string} description イベント説明文
- * @returns {string} 抽出された google_id（存在しない場合は空文字）
+ * @returns {string} 抽出された googleSyncKey（存在しない場合は空文字）
  */
 function extractGoogleEventId(description) {
 	const ids = parseIds(description);
-	return ids.googleId;
+	return ids.googleSyncKey;
 }
 
 /**
- * Google イベントの説明文を組み立てる（outlook_id と outlookSyncKey を含める）。
+ * Google イベントの説明文を組み立てる（outlookSyncKey を含める）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
- * @param {string} outlookId Outlook のイベント ID
- * @param {string} outlookSyncKey Outlook 側の同期キー
+ * @param {string} outlookSyncKey Outlook のイベント同期キー
  * @returns {string} 組み立てた説明文
  */
-function buildGoogleDescription(event, outlookId, outlookSyncKey) {
+function buildGoogleDescription(event, outlookSyncKey) {
 	const lines = [];
 	const descriptionLines = String(event.description || '')
 		.split(/\r?\n/)
-		.filter(
-			(line) =>
-				line && !/^outlook_id:/i.test(line) && !/^outlooksynckey:/i.test(line),
-		);
+		.filter((line) => line && !/^outlookSyncKey:/i.test(line));
 
 	if (descriptionLines.length > 0) {
 		lines.push(descriptionLines.join('\n').trim());
 	}
 	if (outlookSyncKey) {
 		lines.push(`outlookSyncKey:${outlookSyncKey}`);
-	}
-	if (outlookId) {
-		lines.push(`outlook_id:${outlookId}`);
 	}
 	return lines.join('\n');
 }

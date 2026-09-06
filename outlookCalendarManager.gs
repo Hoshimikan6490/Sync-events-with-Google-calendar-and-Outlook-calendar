@@ -817,22 +817,16 @@ function getAccessToken() {
 }
 
 /**
- * Outlook 用の説明文を組み立てる（google_id のみ付加、Repeat は廃止）。
+ * Outlook 用の説明文を組み立てる（`googleSyncKey` を付加）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
- * @param {string} googleId Google のイベント ID
+ * @param {string} googleSyncKey Google のイベント同期キー
  * @returns {string} 組み立てた説明文
  */
-function buildOutlookDescription(event, googleId, googleSyncKey) {
+function buildOutlookDescription(event, googleSyncKey) {
 	const lines = [];
 	const descriptionLines = String(event.description || '')
 		.split(/\r?\n/)
-		.filter(
-			(line) =>
-				line &&
-				!/^google_id:/i.test(line) &&
-				!/^googlesynckey:/i.test(line) &&
-				!/^repeat:/i.test(line),
-		);
+		.filter((line) => line && !/^googleSyncKey:/i.test(line));
 
 	if (descriptionLines.length > 0) {
 		lines.push(descriptionLines.join('\n').trim());
@@ -840,10 +834,6 @@ function buildOutlookDescription(event, googleId, googleSyncKey) {
 	if (googleSyncKey) {
 		lines.push(`googleSyncKey:${googleSyncKey}`);
 	}
-	if (googleId) {
-		lines.push(`google_id:${googleId}`);
-	}
-	// Repeat: は新仕様では付加しない（recurrence フィールド で管理）
 	return lines.join('\n');
 }
 
