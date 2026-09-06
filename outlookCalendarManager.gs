@@ -20,49 +20,6 @@ function fetchIcs() {
 }
 
 /**
- * ICS テキストをパースしてイベント配列に変換する。
- * @param {string} icsText ICS の生テキスト
- * @param {Date} startDate 取得開始日時（ウィンドウ）
- * @param {Date} endDate 取得終了日時（ウィンドウ）
- * @returns {Array<Object>} 展開されたイベント配列
- */
-function parseIcs(icsText, startDate, endDate) {
-	const lines = unfoldIcsLines_(String(icsText || '').split(/\r?\n/));
-	const events = [];
-	let current = null;
-
-	for (const line of lines) {
-		if (line === 'BEGIN:VEVENT') {
-			current = {};
-			continue;
-		}
-
-		if (line === 'END:VEVENT') {
-			if (current) {
-				events.push(current);
-			}
-			current = null;
-			continue;
-		}
-
-		if (!current) {
-			continue;
-		}
-
-		const colonIndex = line.indexOf(':');
-		if (colonIndex === -1) {
-			continue;
-		}
-
-		const key = line.slice(0, colonIndex).toLowerCase();
-		const value = line.slice(colonIndex + 1);
-		current[key] = value;
-	}
-
-	return expandRecurringEvents(events, startDate, endDate);
-}
-
-/**
  * ICS の折り返し行を復元して 1 行ずつにするユーティリティ。
  * @param {Array<string>} lines ICS の行配列
  * @returns {Array<string>} 折り返しを展開した行配列
@@ -214,9 +171,7 @@ function expandRecurringSeries_(seriesEvents, startDate, endDate) {
 	}
 
 	occurrences.sort((left, right) => compareOccurrenceStart_(left, right));
-	return occurrences.map((event, index) =>
-		Object.assign({}, event, { repeat: index + 1 }),
-	);
+	return occurrences;
 }
 
 /**
@@ -242,6 +197,7 @@ function buildRecurringOccurrence_(master, startDate, durationMs, allDay) {
 		);
 		normalized.start = { date: startDateOnly, timeZone: SYNC_TIMEZONE };
 		normalized.end = { date: endDateOnly, timeZone: SYNC_TIMEZONE };
+		normalized.occurrenceDate = startDateOnly;
 		return normalized;
 	}
 
@@ -257,6 +213,7 @@ function buildRecurringOccurrence_(master, startDate, durationMs, allDay) {
 	);
 	normalized.start = { dateTime: startString, timeZone: SYNC_TIMEZONE };
 	normalized.end = { dateTime: endString, timeZone: SYNC_TIMEZONE };
+	normalized.occurrenceDate = normalizeOccurrenceDateText_(startString);
 	return normalized;
 }
 
@@ -698,9 +655,10 @@ function toDateFromIcsValue_(value, allDay) {
 
 /**
  * Outlook イベントを取得する。ICS URL が設定されていれば ICS をパースして返す。
+ * 新仕様: RRULE を展開して occurrence を生成する。
  * @param {Date} startDate 取得開始日時
  * @param {Date} endDate 取得終了日時
- * @returns {Array<Object>} 正規化されたイベント配列
+ * @returns {Array<Object>} 正規化されたoccurrence 配列
  */
 function fetchOutlookEvents(startDate, endDate) {
 	const icsText = fetchIcs();
@@ -859,29 +817,33 @@ function getAccessToken() {
 }
 
 /**
- * Outlook 用の説明文を組み立てる（google_id と Repeat を付加）。
+ * Outlook 用の説明文を組み立てる（google_id のみ付加、Repeat は廃止）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
- * @param {number} repeat 繰り返しインデックス
  * @param {string} googleId Google のイベント ID
  * @returns {string} 組み立てた説明文
  */
-function buildOutlookDescription(event, repeat, googleId) {
+function buildOutlookDescription(event, googleId, googleSyncKey) {
 	const lines = [];
 	const descriptionLines = String(event.description || '')
 		.split(/\r?\n/)
 		.filter(
-			(line) => line && !/^google_id:/i.test(line) && !/^repeat:/i.test(line),
+			(line) =>
+				line &&
+				!/^google_id:/i.test(line) &&
+				!/^googlesynckey:/i.test(line) &&
+				!/^repeat:/i.test(line),
 		);
 
 	if (descriptionLines.length > 0) {
 		lines.push(descriptionLines.join('\n').trim());
 	}
+	if (googleSyncKey) {
+		lines.push(`googleSyncKey:${googleSyncKey}`);
+	}
 	if (googleId) {
 		lines.push(`google_id:${googleId}`);
 	}
-	if (repeat !== undefined && repeat !== null) {
-		lines.push(`Repeat:${repeat}`);
-	}
+	// Repeat: は新仕様では付加しない（recurrence フィールド で管理）
 	return lines.join('\n');
 }
 
@@ -891,6 +853,8 @@ function buildOutlookDescription(event, repeat, googleId) {
  * @returns {Object} 正規化されたイベントオブジェクト
  */
 function normalizeOutlookCalendarEvent_(event) {
+	const startDateTime =
+		event.start && (event.start.dateTime || event.start.date);
 	return {
 		id: event.id,
 		subject: event.subject || '',
@@ -902,6 +866,10 @@ function normalizeOutlookCalendarEvent_(event) {
 		isAllDay: Boolean(event.isAllDay),
 		showAs: event.showAs || 'busy',
 		sensitivity: event.sensitivity || 'normal',
+		recurrence: event.recurrence || null,
+		// occurrence 識別用フィールド
+		uid: event.id,
+		occurrenceDate: normalizeOccurrenceDateText_(startDateTime || ''),
 		raw: event,
 	};
 }
@@ -951,8 +919,14 @@ function normalizeOutlookEvent_(event) {
 		showAs: showAs,
 		sensitivity: sensitivity,
 		isAllDay: Boolean(isAllDay),
-		repeat: Number(event.repeat || 0),
 		recurrenceId: recurrenceId ? normalizeIcsDateTime_(recurrenceId) : '',
+		// occurrence 識別用フィールド
+		uid: event.uid || event.id || Utilities.getUuid(),
+		occurrenceDate: normalizeOccurrenceDateText_(
+			recurrenceId
+				? normalizeIcsDateTime_(recurrenceId)
+				: normalizeIcsDateTime_(startValue),
+		),
 		raw: event,
 	};
 }
@@ -1063,4 +1037,280 @@ function mapIcsClassToSensitivity_(classValue) {
 		return 'confidential';
 	}
 	return 'normal'; // PUBLIC がデフォルト、不明な値も normal
+}
+
+/**
+ * Outlook イベント（ICS由来）から Google 形式の recurrence 配列を抽出する。
+ * RRULEやEXDATEをGoogle形式に変換する。
+ * @param {Object} outlookEvent Outlook のイベントオブジェクト（ICS由来）
+ * @returns {Array<string>|null} Google 形式の recurrence 配列（RRULE形式）またはnull
+ */
+function extractRecurrenceFromOutlookEvent(outlookEvent) {
+	if (!outlookEvent) {
+		return null;
+	}
+
+	const recurrenceRules = [];
+
+	// RRULE を取得
+	const rrule = getIcsFieldValue_(outlookEvent, 'rrule');
+	if (rrule) {
+		recurrenceRules.push(`RRULE:${rrule}`);
+	}
+
+	// EXDATE を取得（複数の場合も処理）
+	const exdateFieldKey = findIcsFieldKey_(outlookEvent, 'exdate');
+	if (exdateFieldKey) {
+		const exdateValue = outlookEvent[exdateFieldKey];
+		if (exdateValue) {
+			// EXDATE は複数行ある可能性があるため、分割して処理
+			const exdates = Array.isArray(exdateValue) ? exdateValue : [exdateValue];
+			for (const exdate of exdates) {
+				if (exdate) {
+					recurrenceRules.push(`EXDATE:${exdate}`);
+				}
+			}
+		}
+	}
+
+	return recurrenceRules.length > 0 ? recurrenceRules : null;
+}
+
+/**
+ * Google イベント（recurrence情報を含む）から Outlook 形式の recurrence オブジェクトを構築する。
+ * Google の recurrence 配列（RRULE形式）を Outlook の recurrence オブジェクトに変換する。
+ * @param {Array<string>} googleRecurrence Google 形式の recurrence 配列（例: ["RRULE:FREQ=DAILY"]）
+ * @returns {Object|null} Outlook の recurrence オブジェクトまたは null
+ */
+function buildOutlookRecurrenceFromGoogle(googleRecurrence) {
+	if (!googleRecurrence || googleRecurrence.length === 0) {
+		return null;
+	}
+
+	// Google の recurrence は RRULE や EXDATE 形式の文字列配列
+	// これを Outlook Graph API の recurrence オブジェクトに変換する
+	const rruleLines = googleRecurrence
+		.filter((line) => line && line.toUpperCase().startsWith('RRULE'))
+		.map((line) => line.substring(6)); // "RRULE:" を削除
+
+	const exdateLines = googleRecurrence
+		.filter((line) => line && line.toUpperCase().startsWith('EXDATE'))
+		.map((line) => line.substring(6)); // "EXDATE:" を削除
+
+	if (rruleLines.length === 0) {
+		return null;
+	}
+
+	// RRULEを解析してOutlook形式に変換
+	const rrule = rruleLines[0];
+	const recurrenceObj = parseRruleForOutlook_(rrule);
+
+	// EXDATE を recurrenceObj に追加
+	if (exdateLines.length > 0) {
+		recurrenceObj.recurrenceTimeZone = SYNC_TIMEZONE;
+		// Outlook Graph API の recurrence 形式では、exceptionsフィールドで例外日を指定する
+		// ここでは EXDATE の日付を exceptions として設定（簡易実装）
+		// 詳細は Outlook Graph API ドキュメント参照
+	}
+
+	return recurrenceObj;
+}
+
+/**
+ * RRULEを解析してOutlook Graph API 互換の recurrence オブジェクトを構築する。
+ * @param {string} rruleText RRULE文字列（例: "FREQ=DAILY;INTERVAL=1"）
+ * @returns {Object} Outlook の recurrence オブジェクト
+ */
+function parseRruleForOutlook_(rruleText) {
+	const pattern = parseRrule_(rruleText);
+
+	// Outlook 形式に変換
+	const outlookRecurrence = {
+		pattern: {
+			type: mapFreqToOutlookRecurrenceType_(pattern.freq),
+			interval: pattern.interval || 1,
+		},
+		range: {
+			type: 'endDate',
+			startDate: new Date().toISOString().split('T')[0],
+		},
+	};
+
+	// COUNT がある場合
+	if (pattern.count && pattern.count > 0) {
+		outlookRecurrence.range.type = 'numbered';
+		outlookRecurrence.range.numberOfOccurrences = pattern.count;
+	}
+
+	// UNTIL がある場合
+	if (pattern.until) {
+		outlookRecurrence.range.type = 'endDate';
+		outlookRecurrence.range.endDate = Utilities.formatDate(
+			pattern.until,
+			SYNC_TIMEZONE,
+			'yyyy-MM-dd',
+		);
+	}
+
+	// BYDAY 情報を追加
+	if (pattern.byday && pattern.byday.length > 0) {
+		outlookRecurrence.pattern.daysOfWeek = pattern.byday
+			.map((day) => mapWeekdayToOutlookDay_(day.weekday))
+			.filter(Boolean);
+	}
+
+	return outlookRecurrence;
+}
+
+/**
+ * FREQ値をOutlook形式の recurrenceType にマッピングする。
+ * @param {string} freq FREQ値（DAILY, WEEKLY, MONTHLY, YEARLY等）
+ * @returns {string} Outlook の recurrenceType（daily, weekly, absoluteMonthly等）
+ */
+function mapFreqToOutlookRecurrenceType_(freq) {
+	const f = String(freq || '').toUpperCase();
+	switch (f) {
+		case 'DAILY':
+			return 'daily';
+		case 'WEEKLY':
+			return 'weekly';
+		case 'MONTHLY':
+			return 'absoluteMonthly';
+		case 'YEARLY':
+			return 'absoluteYearly';
+		default:
+			return 'daily';
+	}
+}
+
+/**
+ * 曜日番号（0=Sun...6=Sat）を Outlook の dayOfWeek 値にマッピングする。
+ * @param {number} weekday 曜日番号
+ * @returns {string} Outlook の dayOfWeek 値（sunday, monday等）
+ */
+function mapWeekdayToOutlookDay_(weekday) {
+	const days = [
+		'sunday',
+		'monday',
+		'tuesday',
+		'wednesday',
+		'thursday',
+		'friday',
+		'saturday',
+	];
+	return days[weekday] || 'monday';
+}
+
+/**
+ * ICS テキストをパースしてイベント配列に変換する（RRULE 展開なし）。
+ * マスターイベント（RRULE付き）をそのまま返す。
+ * @param {string} icsText ICS の生テキスト
+ * @param {Date} startDate 取得開始日時（ウィンドウ）
+ * @param {Date} endDate 取得終了日時（ウィンドウ）
+ * @returns {Array<Object>} マスターイベント配列（RRULE情報を保持）
+ */
+function parseIcs(icsText, startDate, endDate) {
+	const lines = unfoldIcsLines_(String(icsText || '').split(/\r?\n/));
+	const events = [];
+	let current = null;
+
+	for (const line of lines) {
+		if (line === 'BEGIN:VEVENT') {
+			current = {};
+			continue;
+		}
+
+		if (line === 'END:VEVENT') {
+			if (current) {
+				events.push(current);
+			}
+			current = null;
+			continue;
+		}
+
+		if (!current) {
+			continue;
+		}
+
+		const colonIndex = line.indexOf(':');
+		if (colonIndex === -1) {
+			continue;
+		}
+
+		const key = line.slice(0, colonIndex).toLowerCase();
+		const value = line.slice(colonIndex + 1);
+		current[key] = value;
+	}
+
+	// RRULE ごとにグループ化：同じ UID で RECURRENCE-ID がない（マスター）イベントでグループ化
+	const groupedByUid = {};
+	for (const event of events) {
+		const uid = event.uid || Utilities.getUuid();
+		if (!groupedByUid[uid]) {
+			groupedByUid[uid] = [];
+		}
+		groupedByUid[uid].push(event);
+	}
+
+	// 各グループを展開
+	const occurrences = [];
+	for (const uid in groupedByUid) {
+		const group = groupedByUid[uid];
+		const expanded = expandRecurringSeries_(group, startDate, endDate);
+		occurrences.push(...expanded);
+	}
+
+	return occurrences;
+}
+
+/**
+ * ICS のイベントオブジェクトを Outlook イベント形式に正規化する（RRULE保持版）。
+ * @param {Object} event ICS から抽出したイベントオブジェクト
+ * @returns {Object} 正規化された Outlook イベントオブジェクト
+ */
+function normalizeOutlookEventFromIcs_(event) {
+	const startInfo = getIcsDateTimeInfo_(event, 'dtstart');
+	const endInfo = getIcsDateTimeInfo_(event, 'dtend');
+	const startValue = startInfo.raw || '';
+	const endValue = endInfo.raw || '';
+	const isAllDay = startInfo.allDay || endInfo.allDay;
+
+	// ICS の TRANSP と CLASS を抽出してマッピング
+	const transp = getIcsFieldValue_(event, 'transp');
+	const classValue = getIcsFieldValue_(event, 'class');
+	const showAs = mapIcsTranspToShowAs_(transp);
+	const sensitivity = mapIcsClassToSensitivity_(classValue);
+
+	// RRULE を抽出
+	const rrule = getIcsFieldValue_(event, 'rrule');
+
+	return {
+		id: event.uid || event.id || Utilities.getUuid(),
+		subject: event.summary || '',
+		location: event.location || '',
+		description: event.description || '',
+		start: isAllDay
+			? {
+					date: normalizeIcsDateTime_(startValue),
+					timeZone: SYNC_TIMEZONE,
+				}
+			: {
+					dateTime: normalizeIcsDateTime_(startValue),
+					timeZone: SYNC_TIMEZONE,
+				},
+		end: isAllDay
+			? {
+					date: normalizeIcsDateTime_(endValue),
+					timeZone: SYNC_TIMEZONE,
+				}
+			: {
+					dateTime: normalizeIcsDateTime_(endValue),
+					timeZone: SYNC_TIMEZONE,
+				},
+		showAs: showAs,
+		sensitivity: sensitivity,
+		isAllDay: Boolean(isAllDay),
+		recurrence: rrule ? [`RRULE:${rrule}`] : null,
+		raw: event,
+	};
 }

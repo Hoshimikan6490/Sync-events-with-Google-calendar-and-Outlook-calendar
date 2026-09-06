@@ -1,8 +1,9 @@
 /**
  * 指定期間の Google カレンダーイベントを取得して正規化して返す。
+ * occurrence 単位取得のため、singleEvents は true に設定。
  * @param {Date} startDate 取得開始日時
  * @param {Date} endDate 取得終了日時
- * @returns {Array<Object>} 正規化されたイベント配列
+ * @returns {Array<Object>} 正規化されたイベント配列（occurrence 単位）
  */
 function getGoogleEvents(startDate, endDate) {
 	const calendarId = CalendarApp.getDefaultCalendar().getId();
@@ -84,28 +85,29 @@ function extractGoogleEventId(description) {
 }
 
 /**
- * Google イベントの説明文を組み立てる（outlook_id と Repeat を含める）。
+ * Google イベントの説明文を組み立てる（outlook_id と outlookSyncKey を含める）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
- * @param {number} repeat 繰り返しインデックス
  * @param {string} outlookId Outlook のイベント ID
+ * @param {string} outlookSyncKey Outlook 側の同期キー
  * @returns {string} 組み立てた説明文
  */
-function buildGoogleDescription(event, repeat, outlookId) {
+function buildGoogleDescription(event, outlookId, outlookSyncKey) {
 	const lines = [];
 	const descriptionLines = String(event.description || '')
 		.split(/\r?\n/)
 		.filter(
-			(line) => line && !/^outlook_id:/i.test(line) && !/^repeat:/i.test(line),
+			(line) =>
+				line && !/^outlook_id:/i.test(line) && !/^outlooksynckey:/i.test(line),
 		);
 
 	if (descriptionLines.length > 0) {
 		lines.push(descriptionLines.join('\n').trim());
 	}
+	if (outlookSyncKey) {
+		lines.push(`outlookSyncKey:${outlookSyncKey}`);
+	}
 	if (outlookId) {
 		lines.push(`outlook_id:${outlookId}`);
-	}
-	if (repeat !== undefined && repeat !== null) {
-		lines.push(`Repeat:${repeat}`);
 	}
 	return lines.join('\n');
 }
@@ -136,6 +138,12 @@ function normalizeGoogleCalendarEvent_(event) {
 		// Google の透明性/表示設定を Outlook の showAs/sensitivity に変換
 		showAs: mapTransparencyToShowAs(event.transparency || 'opaque'),
 		sensitivity: mapVisibilityToSensitivity(event.visibility || 'default'),
+		// occurrence 識別用フィールド
+		recurringEventId: event.recurringEventId || null,
+		originalStartTime: event.originalStartTime || null,
+		occurrenceDate: normalizeOccurrenceDateText_(
+			event.originalStartTime || event.start || event.startDateTime || null,
+		),
 		raw: event,
 	};
 }
@@ -424,4 +432,118 @@ function mapSensitivityToVisibility(sensitivity) {
 	if (s === 'confidential') return 'confidential';
 	if (s === 'personal') return 'default';
 	return 'default';
+}
+
+/**
+ * Google イベントから recurrence 配列を抽出する。
+ * @param {Object} googleEvent Google Calendar API のイベントオブジェクト
+ * @returns {Array<string>|null} recurrence 配列（例: ["RRULE:FREQ=DAILY"]）またはnull
+ */
+function extractRecurrenceFromGoogleEvent(googleEvent) {
+	if (!googleEvent || !googleEvent.recurrence) {
+		return null;
+	}
+
+	// Google API の recurrence は配列で、RRULE形式の文字列を含む
+	const recurrence = googleEvent.recurrence;
+	if (Array.isArray(recurrence) && recurrence.length > 0) {
+		return recurrence;
+	}
+
+	return null;
+}
+
+/**
+ * Outlook 形式の recurrence オブジェクトから Google 形式の recurrence 配列を構築する。
+ * @param {Object} outlookRecurrence Outlook Graph API の recurrence オブジェクト
+ * @returns {Array<string>|null} Google 形式の recurrence 配列またはnull
+ */
+function buildGoogleRecurrenceFromOutlook(outlookRecurrence) {
+	if (!outlookRecurrence || !outlookRecurrence.pattern) {
+		return null;
+	}
+
+	const recurrenceRules = [];
+	const pattern = outlookRecurrence.pattern;
+	const range = outlookRecurrence.range || {};
+
+	// pattern.type から FREQ を取得
+	const freq = mapOutlookTypeToFreq_(pattern.type);
+	if (!freq) {
+		return null;
+	}
+
+	// RRULEを構築
+	let rrule = `FREQ=${freq}`;
+
+	// interval を追加
+	if (pattern.interval && pattern.interval > 1) {
+		rrule += `;INTERVAL=${pattern.interval}`;
+	}
+
+	// daysOfWeek を追加（BYDAY）
+	if (pattern.daysOfWeek && Array.isArray(pattern.daysOfWeek)) {
+		const bydays = pattern.daysOfWeek
+			.map((day) => mapOutlookDayToRruleFormat_(day))
+			.filter(Boolean)
+			.join(',');
+		if (bydays) {
+			rrule += `;BYDAY=${bydays}`;
+		}
+	}
+
+	// COUNT または UNTIL を追加
+	if (range.type === 'numbered' && range.numberOfOccurrences) {
+		rrule += `;COUNT=${range.numberOfOccurrences}`;
+	} else if (range.type === 'endDate' && range.endDate) {
+		// UNTIL は YYYYMMDD形式
+		const endDateFormatted = range.endDate.replace(/-/g, '');
+		rrule += `;UNTIL=${endDateFormatted}`;
+	}
+
+	recurrenceRules.push(`RRULE:${rrule}`);
+
+	return recurrenceRules;
+}
+
+/**
+ * Outlook の recurrenceType を RRULE の FREQ にマッピングする。
+ * @param {string} outlookType Outlook のrecurrenceType（daily, weekly等）
+ * @returns {string|null} RRULEのFREQ値
+ */
+function mapOutlookTypeToFreq_(outlookType) {
+	const type = String(outlookType || '').toLowerCase();
+	switch (type) {
+		case 'daily':
+			return 'DAILY';
+		case 'weekly':
+			return 'WEEKLY';
+		case 'absolutemonthly':
+		case 'relativeMonthly':
+			return 'MONTHLY';
+		case 'absoluteyearly':
+		case 'relativeYearly':
+			return 'YEARLY';
+		default:
+			return null;
+	}
+}
+
+/**
+ * Outlook の dayOfWeek 値を RRULE の BYDAY 形式にマッピングする。
+ * @param {string} outlookDay Outlook の dayOfWeek 値（sunday, monday等）
+ * @returns {string|null} RRULE形式の曜日コード（SU, MO等）
+ */
+function mapOutlookDayToRruleFormat_(outlookDay) {
+	const day = String(outlookDay || '').toLowerCase();
+	const mapping = {
+		sunday: 'SU',
+		monday: 'MO',
+		tuesday: 'TU',
+		wednesday: 'WE',
+		thursday: 'TH',
+		friday: 'FR',
+		saturday: 'SA',
+	};
+	return mapping[day] || null;
 }
