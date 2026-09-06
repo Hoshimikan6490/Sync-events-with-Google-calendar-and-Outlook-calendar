@@ -35,9 +35,8 @@ Google Apps Script で Google カレンダーと Outlook カレンダーを双�
 
 ## 運用メモ
 
-- 予定の関連付けは description 内の `google_id:` / `outlook_id:` で行います。
+- 予定の関連付けは description 内の `googleSyncKey:` / `outlookSyncKey:` で行います。
 - 逆流防止のため、同期元の ID を持つイベントは元カレンダーへ戻しません。
-- 繰り返し予定は展開済みイベントとして扱い、`Repeat:` を付与します。
 - タイムゾーンは `Asia/Tokyo` に統一しています。
 
 ## セットアップ方法

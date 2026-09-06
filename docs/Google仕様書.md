@@ -90,18 +90,18 @@ Google Calendar API の `remove` でイベントを削除します。現在の�
 
 ## 説明文メタデータ
 
-### `buildGoogleDescription(event, outlookId)`
+### `buildGoogleDescription(event, outlookSyncKey)`
 
 Google 側の description 末尾に、Outlook 側との関連付け情報を追記します。
 
-- 既存の `outlook_id:` は除去する
-- `outlook_id:` を追記する
+- 既存の `outlookSyncKey:` は除去する
+- `outlookSyncKey:` を追記する
 
-形式は `outlook_id:<outlookId>` です（ただし単一イベントのみ、繰り返しは個々の occurrence で管理）。
+形式は `outlookSyncKey:<eventId>`（単一）または `outlookSyncKey:repeat_<recurringId>_<occurrenceDate>`（occurrence）です。
 
 ### `extractGoogleEventId(description)`
 
-description から `google_id:` を取り出します。現在は legacy 互換の補助関数です。
+description から `googleSyncKey:` を取り出します。
 
 ## タイムゾーンと変換
 
