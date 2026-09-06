@@ -9,7 +9,7 @@ const O365_AUTH_BASE = 'https://login.microsoftonline.com';
  * @returns void
  */
 function syncCalendars() {
-	const windowRange = getSyncWindow_();
+	const windowRange = getSyncWindow();
 	const googleEvents = getGoogleEvents(windowRange.start, windowRange.end);
 	const outlookEvents = fetchOutlookEvents(windowRange.start, windowRange.end);
 
@@ -559,19 +559,6 @@ function installThirtyMinuteTrigger() {
 	}
 
 	ScriptApp.newTrigger(handlerFunction).timeBased().everyMinutes(30).create();
-}
-
-/**
- * 同期対象の日時ウィンドウ（開始と終了）を生成する。
- * @param void
- * @returns {{start:Date,end:Date}} 同期ウィンドウの開始日時と終了日時
- */
-function getSyncWindow_() {
-	const start = new Date();
-	const end = new Date(start);
-	end.setMonth(end.getMonth() + LOOKBACK_MONTHS);
-	end.setHours(23, 59, 59, 999);
-	return { start, end };
 }
 
 /**

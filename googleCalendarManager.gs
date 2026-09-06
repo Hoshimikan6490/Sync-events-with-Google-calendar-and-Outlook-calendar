@@ -6,9 +6,14 @@
  * @returns {Array<Object>} 正規化されたイベント配列（occurrence 単位）
  */
 function getGoogleEvents(startDate, endDate) {
+	// カレンダーを取得
 	const calendarId = CalendarApp.getDefaultCalendar().getId();
-	const timeMin = buildGoogleApiQueryDateTime_(startDate);
-	const timeMax = buildGoogleApiQueryDateTime_(endDate);
+
+	// DateをGoogle API用のRFC3339形式に変換
+	const timeMin = convertDateToGoogleDateTime(startDate);
+	const timeMax = convertDateToGoogleDateTime(endDate);
+
+	// Google Calendar APIを使用してイベントを取得
 	const events =
 		Calendar.Events.list(calendarId, {
 			timeMin: timeMin,
@@ -112,8 +117,8 @@ function buildGoogleDescription(event, outlookSyncKey) {
  * @returns {Object} 正規化されたイベントオブジェクト
  */
 function normalizeGoogleCalendarEvent_(event) {
-	const startNormalized = normalizeGoogleDateTime_(event.start);
-	const endNormalized = normalizeGoogleDateTime_(event.end);
+	const startNormalized = normalizeGoogleDateTime(event.start);
+	const endNormalized = normalizeGoogleDateTime(event.end);
 
 	// 内部表現は Outlook 仕様をメインとする（subject, showAs, sensitivity など）
 	const isAllDay = Boolean(startNormalized.start && startNormalized.start.date);
@@ -128,9 +133,10 @@ function normalizeGoogleCalendarEvent_(event) {
 		start: startNormalized.start || {},
 		end: endNormalized.start || {},
 		isAllDay: isAllDay,
-		// Google の透明性/表示設定を Outlook の showAs/sensitivity に変換
-		showAs: mapTransparencyToShowAs(event.transparency || 'opaque'),
-		sensitivity: mapVisibilityToSensitivity(event.visibility || 'default'),
+		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
+		showAs: mapTransparencyToShowAs(event.transparency),
+    sensitivity: mapVisibilityToSensitivity(event.visibility),
+    // TODO: 次回、これ以降の処理を点検する
 		// occurrence 識別用フィールド
 		recurringEventId: event.recurringEventId || null,
 		originalStartTime: event.originalStartTime || null,
@@ -147,7 +153,7 @@ function normalizeGoogleCalendarEvent_(event) {
  * @param {Object} googleDateTime Google の start/end オブジェクト {dateTime, date, timeZone}
  * @returns {Object} 正規化されたオブジェクト {dateTime（UTC）, timeZone, start}
  */
-function normalizeGoogleDateTime_(googleDateTime) {
+function normalizeGoogleDateTime(googleDateTime) {
 	if (!googleDateTime) {
 		return { dateTime: '', timeZone: SYNC_TIMEZONE, start: {} };
 	}
@@ -163,7 +169,7 @@ function normalizeGoogleDateTime_(googleDateTime) {
 
 	// 時間指定イベント: dateTime（RFC3339 with offset）をUTCに正規化
 	if (googleDateTime.dateTime) {
-		const utcDateTime = convertRfc3339ToUtc_(googleDateTime.dateTime);
+		const utcDateTime = convertRfc3339ToUtc(googleDateTime.dateTime);
 		return {
 			dateTime: utcDateTime,
 			timeZone: googleDateTime.timeZone || SYNC_TIMEZONE,
@@ -280,30 +286,21 @@ function buildDefaultGoogleEndFromStart_(start, timeZone) {
 }
 
 /**
- * 指定日時を同期タイムゾーンで Google API クエリ用（RFC3339 with offset）にフォーマットする。
- * @param {Date|string} value Date オブジェクトまたは日時文字列
+ * Date をGoogle形式（RFC3339 with offset）に変換する。
+ * @param {Date|string} date Date オブジェクトまたは日時文字列
  * @returns {string} RFC3339 形式の日時文字列（例: 2026-05-08T11:40:00+09:00）
  */
-function buildGoogleApiQueryDateTime_(value) {
+function convertDateToGoogleDateTime(value) {
 	const date = value instanceof Date ? value : new Date(value);
-	return convertDateToGoogleDateTime_(date, SYNC_TIMEZONE);
-}
 
-/**
- * Date オブジェクトをGoogle形式（RFC3339 with offset）に変換する。
- * @param {Date} date Date オブジェクト
- * @param {string} timeZone タイムゾーン
- * @returns {string} RFC3339 形式の日時文字列（例: 2026-05-08T11:40:00+09:00）
- */
-function convertDateToGoogleDateTime_(date, timeZone) {
 	const dateTimeText = Utilities.formatDate(
 		date,
-		timeZone,
+		SYNC_TIMEZONE,
 		"yyyy-MM-dd'T'HH:mm:ss",
 	);
 
 	// タイムゾーンオフセットを計算
-	const offset = getTimezoneOffset_(date, timeZone);
+	const offset = getTimezoneOffset_(date, SYNC_TIMEZONE);
 	const offsetStr = formatOffset_(offset);
 
 	return dateTimeText + offsetStr;
@@ -354,7 +351,7 @@ function formatOffset_(offsetMinutes) {
  * @param {string} rfc3339DateTime RFC3339形式の日時文字列
  * @returns {string} UTC形式の日時文字列
  */
-function convertRfc3339ToUtc_(rfc3339DateTime) {
+function convertRfc3339ToUtc(rfc3339DateTime) {
 	if (!rfc3339DateTime) {
 		return '';
 	}
@@ -391,14 +388,16 @@ function convertUtcToLocalDateTime_(utcDateTime, timeZone) {
 }
 
 /**
- * map helpers: Outlook <-> Google
+ * Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
+ * @param {string} transparency Googleのtransparency値（'transparent' または 'opaque'）
+ * @returns {string} OutlookのshowAs値（'free' または 'busy'）
  */
 function mapTransparencyToShowAs(transparency) {
-	// Google: 'transparent' (free) / 'opaque' (busy)
-	if ((transparency || '').toLowerCase() === 'transparent') {
-		return 'free';
+	// opaqueに指定されていればbusy、それ以外はfreeとして扱う
+	if (transparency.toLowerCase() === 'opaque') {
+		return 'busy';
 	}
-	return 'busy';
+	return 'free';
 }
 
 function mapShowAsToTransparency(showAs) {
@@ -409,14 +408,26 @@ function mapShowAsToTransparency(showAs) {
 	return 'opaque';
 }
 
+/**
+ * Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
+ * @param {string} visibility Googleのvisibility値
+ * @returns {string} Outlookのsensitivity値
+ */
 function mapVisibilityToSensitivity(visibility) {
-	// Google visibility: 'default','public','private','confidential'
-	// Outlook sensitivity: 'normal','personal','private','confidential'
-	const v = (visibility || '').toLowerCase();
-	if (v === 'private') return 'private';
-	if (v === 'confidential') return 'confidential';
-	if (v === 'public') return 'normal';
-	return 'normal';
+	if (visibility.toLocaleLowerCase() === 'public') {
+		return 'public';
+	} else if (visibility.toLocaleLowerCase() === 'default') {
+		// Googleカレンダーのデフォルトの公開設定を取得し、それに応じてsensitivityを返す
+		const calendar = CalendarApp.getDefaultCalendar();
+		const defaultVisibility = calendar.getVisibility();
+		if (defaultVisibility === CalendarApp.Visibility.PUBLIC) {
+			return 'public';
+		} else {
+			return 'private';
+		}
+	} else {
+		return 'private';
+	}
 }
 
 function mapSensitivityToVisibility(sensitivity) {

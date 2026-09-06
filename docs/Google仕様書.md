@@ -113,28 +113,34 @@ Google 側は RFC3339 with offset (+09:00) で外部入出力を行いますが�
 
 ## 変換ヘルパー
 
-### `mapTransparencyToShowAs(transparency)`
+### [googleの空き状況設定→内部データ形式] `mapTransparencyToShowAs(transparency)`
 
+googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRANSPARENTが予定なしという扱いである。
+内部データでは、OutlookのShowAs仕様で扱うため、それに合わせた変換を行う。
 - `transparent` → `free`
-- それ以外 → `busy`
+- `opaque` → `busy`
 
-### `mapShowAsToTransparency(showAs)`
+### [内部データ形式→googleの空き状況設定] `mapShowAsToTransparency(showAs)`
 
+googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRANSPARENTが予定なしという扱いである。
+内部データでは、OutlookのShowAs仕様で扱うため、それに合わせた変換を行う。
 - `free` → `transparent`
-- それ以外 → `opaque`
+- `busy` → `opaque`
 
-### `mapVisibilityToSensitivity(visibility)`
+### [googleの公開設定→内部データ形式] `mapVisibilityToSensitivity(visibility)`
 
+googleは空き状況をVisibilityで扱い、CONFIDENTIALまたはPRIVATEが非公開(カレンダーのオーナーと予定の参加者のみが確認可能)で、DEFAULTがカレンダーのデフォルト設定で、PUBLICが公開という扱いである。
+内部データでは、PublicかPrivateに丸める。Publicはカレンダーを共有している相手にも閲覧できるが、Privateはカレンダーを共有している相手でも「非公開の予定」という扱いになる。
+- `public` → `public`
+- `confidential`または`private` → `private`
+- `default` → カレンダーのデフォルト設定を基に`public`または`private`
+
+### [内部データ形式→googleの公開設定] `mapSensitivityToVisibility(sensitivity)`
+
+googleは空き状況をVisibilityで扱い、CONFIDENTIALまたはPRIVATEが非公開(カレンダーのオーナーと予定の参加者のみが確認可能)で、DEFAULTがカレンダーのデフォルト設定で、PUBLICが公開という扱いである。
+内部データでは、PublicかPrivateに丸める。Publicはカレンダーを共有している相手にも閲覧できるが、Privateはカレンダーを共有している相手でも「非公開の予定」という扱いになる。
+- `public` → `public`
 - `private` → `private`
-- `confidential` → `confidential`
-- `public` / その他 → `normal`
-
-### `mapSensitivityToVisibility(sensitivity)`
-
-- `private` → `private`
-- `confidential` → `confidential`
-- `personal` → `default`
-- それ以外 → `default`
 
 ## recurrence 関連
 

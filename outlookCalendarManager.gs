@@ -976,11 +976,11 @@ function buildOutlookCalendarResource_(eventData) {
 		isAllDay: Boolean(eventData.isAllDay),
 		showAs:
 			eventData.showAs ||
-			mapTransparencyToShowAs(eventData.transparency) ||
+			mapTransparencyToShowAs(eventData.transparency) || //※後ほどTODO: これはGoogleのtransparencyを変換する関数なので、内容の確認が必要
 			'busy',
 		sensitivity:
 			eventData.sensitivity ||
-			mapVisibilityToSensitivity(eventData.visibility) ||
+			mapVisibilityToSensitivity(eventData.visibility) || //※後ほどTODO: これはGoogleのvisibilityを変換する関数なので、内容の確認が必要
 			'normal',
 	};
 }
