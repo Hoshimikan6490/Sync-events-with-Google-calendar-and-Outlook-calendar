@@ -135,8 +135,8 @@ function normalizeGoogleCalendarEvent_(event) {
 		isAllDay: isAllDay,
 		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
 		showAs: mapTransparencyToShowAs(event.transparency),
-    sensitivity: mapVisibilityToSensitivity(event.visibility),
-    // TODO: 次回、これ以降の処理を点検する
+		sensitivity: mapVisibilityToSensitivity(event.visibility),
+		// TODO: 次回、これ以降の処理を点検する
 		// occurrence 識別用フィールド
 		recurringEventId: event.recurringEventId || null,
 		originalStartTime: event.originalStartTime || null,

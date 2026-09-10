@@ -23,6 +23,7 @@
 `OUTLOOK_CALENDAR_ID` が未設定なら既定の Outlook カレンダーを使います。
 
 ### アクセストークンの取得と更新
+
 - `setup()`
 
 PKCE 用の `code_verifier` を生成し、認可 URL をログへ出力します。`code_challenge` と `code_challenge_method=S256` を使います。
@@ -113,6 +114,7 @@ Outlook から来た日時を Google 側へ渡しやすい形に整えます。
 **統一ルール**: Outlook イベント ID の取得方法はコード内で統一します。
 
 **Graph API から取得する場合（必須パターン）**:
+
 ```javascript
 // Graph API レスポンスの id フィールドを使用
 var id = event.id;

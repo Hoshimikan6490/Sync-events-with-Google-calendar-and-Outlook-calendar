@@ -7,6 +7,7 @@
 同期の起点は `syncCalendars()` で、Outlook 側の取得・正規化・変換はこの仕様に従います。
 
 ## 認証関連
+
 Google Apps Scriptは認証用の処理不要でGoogleカレンダーにアクセスできるので、認証は不要。
 
 ## 取得
@@ -30,9 +31,10 @@ Google の既定カレンダーからイベントを取得し、同期用の occ
 Google Calendar API の `event.id` はカレンダー内で一意ですが、ConfidentialID など内部形式です。UI で見える `eid=` パラメータの方が参照値として適切なため、以下の方法で抽出します。
 
 **実装パターン（必須）**:
+
 ```javascript
 var link = event.htmlLink;
-var event_id = link.split("eid=")[1];
+var event_id = link.split('eid=')[1];
 ```
 
 - **常にこのパターンを使用** してコード内で統一する
@@ -117,6 +119,7 @@ Google 側は RFC3339 with offset (+09:00) で外部入出力を行いますが�
 
 googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRANSPARENTが予定なしという扱いである。
 内部データでは、OutlookのShowAs仕様で扱うため、それに合わせた変換を行う。
+
 - `transparent` → `free`
 - `opaque` → `busy`
 
@@ -124,6 +127,7 @@ googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRA
 
 googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRANSPARENTが予定なしという扱いである。
 内部データでは、OutlookのShowAs仕様で扱うため、それに合わせた変換を行う。
+
 - `free` → `transparent`
 - `busy` → `opaque`
 
@@ -131,6 +135,7 @@ googleは空き状況をEventTransparencyで扱い、OPAQUEが予定ありでTRA
 
 googleは空き状況をVisibilityで扱い、CONFIDENTIALまたはPRIVATEが非公開(カレンダーのオーナーと予定の参加者のみが確認可能)で、DEFAULTがカレンダーのデフォルト設定で、PUBLICが公開という扱いである。
 内部データでは、PublicかPrivateに丸める。Publicはカレンダーを共有している相手にも閲覧できるが、Privateはカレンダーを共有している相手でも「非公開の予定」という扱いになる。
+
 - `public` → `public`
 - `confidential`または`private` → `private`
 - `default` → カレンダーのデフォルト設定を基に`public`または`private`
@@ -139,6 +144,7 @@ googleは空き状況をVisibilityで扱い、CONFIDENTIALまたはPRIVATEが非
 
 googleは空き状況をVisibilityで扱い、CONFIDENTIALまたはPRIVATEが非公開(カレンダーのオーナーと予定の参加者のみが確認可能)で、DEFAULTがカレンダーのデフォルト設定で、PUBLICが公開という扱いである。
 内部データでは、PublicかPrivateに丸める。Publicはカレンダーを共有している相手にも閲覧できるが、Privateはカレンダーを共有している相手でも「非公開の予定」という扱いになる。
+
 - `public` → `public`
 - `private` → `private`
 
