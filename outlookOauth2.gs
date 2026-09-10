@@ -65,7 +65,6 @@ function base64UrlEncode(input) {
  * @returns {string} トークンエンドポイント URL
  */
 function getOutlookAuthTokenUrl() {
-	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	const tenantId =
 		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
 	return OUTLOOK_AUTH_BASE_URL + '/' + tenantId + '/oauth2/v2.0/token';
@@ -77,7 +76,6 @@ function getOutlookAuthTokenUrl() {
  * @returns {string} 認可エンドポイント URL
  */
 function getOutlookAuthAuthorizeUrl() {
-	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	const tenantId =
 		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
 	return OUTLOOK_AUTH_BASE_URL + '/' + tenantId + '/oauth2/v2.0/authorize';
