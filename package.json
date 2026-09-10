@@ -1,0 +1,32 @@
+{
+	"name": "sync-events-with-google-calendar-and-outlook-calendar",
+	"version": "1.0.0",
+	"description": "Google Apps Script で Google カレンダーと Outlook カレンダーを双方向同期するプロジェクトです。仕様の詳細は [仕様書.md](仕様書.md) を参照してください。",
+	"homepage": "https://github.com/Hoshimikan6490/Sync-events-with-Google-calendar-and-Outlook-calendar#readme",
+	"bugs": {
+		"url": "https://github.com/Hoshimikan6490/Sync-events-with-Google-calendar-and-Outlook-calendar/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/Hoshimikan6490/Sync-events-with-Google-calendar-and-Outlook-calendar.git"
+	},
+	"type": "commonjs",
+	"main": "code.gs",
+	"directories": {
+		"doc": "docs"
+	},
+	"scripts": {
+		"lint": "eslint .",
+		"lint:fix": "eslint . --fix",
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"format:lint": "prettier --write . && eslint . --fix"
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"eslint": "^10.10.0",
+		"eslint-config-prettier": "10.1.8",
+		"globals": "^17.12.0",
+		"prettier": "^3.9.6"
+	}
+}
