@@ -1,5 +1,5 @@
 /**
- * 指定期間の Google カレンダーイベントを取得して正規化して返す。
+ * [点検中] 指定期間の Google カレンダーイベントを取得して正規化して返す。
  * occurrence 単位取得のため、singleEvents は true に設定。
  * @param {Date} startDate 取得開始日時
  * @param {Date} endDate 取得終了日時
@@ -28,7 +28,7 @@ function getGoogleEvents(startDate, endDate) {
 }
 
 /**
- * Google イベントが指定ウィンドウと重複するか判定する。
+ * [未点検] Google イベントが指定ウィンドウと重複するか判定する。
  * @param {Object} event Google イベント
  * @param {Date} startDate ウィンドウ開始
  * @param {Date} endDate ウィンドウ終了
@@ -47,7 +47,7 @@ function googleEventOverlapsWindow_(event, startDate, endDate) {
 }
 
 /**
- * Google カレンダーに新しいイベントを作成する。
+ * [未点検] Google カレンダーに新しいイベントを作成する。
  * @param {Object} eventData 作成するイベントデータ（summary, start, end 等）
  * @returns {Object} 作成されたイベントのリソース
  */
@@ -58,7 +58,7 @@ function createGoogleEvent(eventData) {
 }
 
 /**
- * 既存の Google イベントを更新する。
+ * [未点検]既存の Google イベントを更新する。
  * @param {string} eventId 更新対象のイベント ID
  * @param {Object} eventData 更新内容のイベントデータ
  * @returns {Object} 更新後のイベントリソース
@@ -70,7 +70,7 @@ function updateGoogleEvent(eventId, eventData) {
 }
 
 /**
- * Google カレンダーからイベントを削除する。
+ * [未点検] Google カレンダーからイベントを削除する。
  * @param {string} eventId 削除対象のイベント ID
  * @returns void
  */
@@ -80,7 +80,7 @@ function deleteGoogleEvent(eventId) {
 }
 
 /**
- * 説明文から埋め込まれた googleSyncKey を抽出する。
+ * [未点検] 説明文から埋め込まれた googleSyncKey を抽出する。
  * @param {string} description イベント説明文
  * @returns {string} 抽出された googleSyncKey（存在しない場合は空文字）
  */
@@ -90,7 +90,7 @@ function extractGoogleEventId(description) {
 }
 
 /**
- * Google イベントの説明文を組み立てる（outlookSyncKey を含める）。
+ * [未点検] Google イベントの説明文を組み立てる（outlookSyncKey を含める）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
  * @param {string} outlookSyncKey Outlook のイベント同期キー
  * @returns {string} 組み立てた説明文
@@ -111,7 +111,7 @@ function buildGoogleDescription(event, outlookSyncKey) {
 }
 
 /**
- * Google Calendar API のイベントリソースを内部で扱う正規化形式（UTC + timeZone）に変換する。
+ * [点検中] Google Calendar API のイベントリソースを内部で扱う正規化形式（UTC + timeZone）に変換する。
  * Google のdateTime（RFC3339 with offset）をUTC + timeZoneに正規化する。
  * @param {Object} event API のイベントオブジェクト
  * @returns {Object} 正規化されたイベントオブジェクト
@@ -152,7 +152,7 @@ function normalizeGoogleCalendarEvent_(event) {
 }
 
 /**
- * Google Calendar API の datetime オブジェクトをUTC + timeZone形式に正規化する。
+ * [未点検] Google Calendar API の datetime オブジェクトをUTC + timeZone形式に正規化する。
  * RFC3339 with offset の形式をUTC+タイムゾーン形式に変換する。
  * @param {Object} googleDateTime Google の start/end オブジェクト {dateTime, date, timeZone}
  * @returns {Object} 正規化されたオブジェクト {dateTime（UTC）, timeZone, start}
@@ -188,7 +188,7 @@ function normalizeGoogleDateTime(googleDateTime) {
 }
 
 /**
- * Google Calendar API に渡すリソースオブジェクトを構築する。
+ * [未点検] Google Calendar API に渡すリソースオブジェクトを構築する。
  * 内部のUTC + timeZone 形式をGoogle形式に変換する。
  * @param {Object} eventData 内部表現のイベントデータ（UTC + timeZone）
  * @returns {Object} API に渡すリソースオブジェクト（Google形式）
@@ -248,7 +248,7 @@ function buildGoogleCalendarResource_(eventData) {
 }
 
 /**
- * 指定した開始からデフォルトの終了を構築する（終日の場合は翌日、そうでなければ +1 時間）。
+ * [未点検] 指定した開始からデフォルトの終了を構築する（終日の場合は翌日、そうでなければ +1 時間）。
  * @param {Object} start 開始情報（date または dateTime を想定）
  * @param {string} timeZone タイムゾーン（デフォルト: SYNC_TIMEZONE）
  * @returns {Object} 終了情報オブジェクト（Google形式、ローカル時刻）
@@ -290,7 +290,7 @@ function buildDefaultGoogleEndFromStart_(start, timeZone) {
 }
 
 /**
- * Date をGoogle形式（RFC3339 with offset）に変換する。
+ * [未点検] Date をGoogle形式（RFC3339 with offset）に変換する。
  * @param {Date|string} date Date オブジェクトまたは日時文字列
  * @returns {string} RFC3339 形式の日時文字列（例: 2026-05-08T11:40:00+09:00）
  */
@@ -311,7 +311,7 @@ function convertDateToGoogleDateTime(value) {
 }
 
 /**
- * タイムゾーンのUTCオフセット（分単位）を取得する。
+ * [未点検] タイムゾーンのUTCオフセット（分単位）を取得する。
  * @param {Date} date Date オブジェクト
  * @param {string} timeZone タイムゾーン（例: "Asia/Tokyo"）
  * @returns {number} UTCからのオフセット（分単位、例: 540 は +09:00）
@@ -333,7 +333,7 @@ function getTimezoneOffset_(date, timeZone) {
 }
 
 /**
- * オフセット（分単位）を "+HH:mm" または "-HH:mm" 形式の文字列に変換する。
+ * [未点検] オフセット（分単位）を "+HH:mm" または "-HH:mm" 形式の文字列に変換する。
  * @param {number} offsetMinutes オフセット（分単位、例: 540 は +09:00）
  * @returns {string} オフセット文字列（例: "+09:00", "-05:00"）
  */
@@ -351,7 +351,7 @@ function formatOffset_(offsetMinutes) {
 }
 
 /**
- * RFC3339 with offset形式（"2026-05-08T11:40:00+09:00"）をUTC形式（"2026-05-08T02:40:00Z"）に変換する。
+ * [未点検] RFC3339 with offset形式（"2026-05-08T11:40:00+09:00"）をUTC形式（"2026-05-08T02:40:00Z"）に変換する。
  * @param {string} rfc3339DateTime RFC3339形式の日時文字列
  * @returns {string} UTC形式の日時文字列
  */
@@ -371,7 +371,7 @@ function convertRfc3339ToUtc(rfc3339DateTime) {
 }
 
 /**
- * UTC形式の日時（"2026-05-08T02:40:00Z"）をローカル日時（オフセットなし）に変換する。
+ * [未点検] UTC形式の日時（"2026-05-08T02:40:00Z"）をローカル日時（オフセットなし）に変換する。
  * @param {string} utcDateTime UTC形式の日時文字列
  * @param {string} timeZone タイムゾーン
  * @returns {string} ローカル日時文字列（例: 2026-05-08T11:40:00）
@@ -392,7 +392,7 @@ function convertUtcToLocalDateTime_(utcDateTime, timeZone) {
 }
 
 /**
- * Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
+ * [未点検] Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
  * @param {string} transparency Googleのtransparency値（'transparent' または 'opaque'）
  * @returns {string} OutlookのshowAs値（'free' または 'busy'）
  */
@@ -404,6 +404,11 @@ function mapTransparencyToShowAs(transparency) {
 	return 'free';
 }
 
+/**
+ * [未点検] OutlookのshowAsをGoogleのtransparencyにマッピングする。
+ * @param {string} showAs OutlookのshowAs値（'free' または 'busy'）
+ * @returns {string} Googleのtransparency値（'transparent' または 'opaque'）
+ */
 function mapShowAsToTransparency(showAs) {
 	// Outlook showAs: 'free','busy','tentative','oof' => Google transparency
 	if (!showAs) return undefined;
@@ -413,7 +418,7 @@ function mapShowAsToTransparency(showAs) {
 }
 
 /**
- * Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
+ * [未点検] Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
  * @param {string} visibility Googleのvisibility値
  * @returns {string} Outlookのsensitivity値
  */
@@ -434,6 +439,11 @@ function mapVisibilityToSensitivity(visibility) {
 	}
 }
 
+/**
+ * [未点検] OutlookのsensitivityをGoogleのvisibilityにマッピングする。
+ * @param {string} sensitivity Outlookのsensitivity値
+ * @returns {string} Googleのvisibility値
+ */
 function mapSensitivityToVisibility(sensitivity) {
 	const s = (sensitivity || '').toLowerCase();
 	if (s === 'private') return 'private';
@@ -443,7 +453,7 @@ function mapSensitivityToVisibility(sensitivity) {
 }
 
 /**
- * Google イベントから recurrence 配列を抽出する。
+ * [未点検] Google イベントから recurrence 配列を抽出する。
  * @param {Object} googleEvent Google Calendar API のイベントオブジェクト
  * @returns {Array<string>|null} recurrence 配列（例: ["RRULE:FREQ=DAILY"]）またはnull
  */
@@ -462,7 +472,7 @@ function extractRecurrenceFromGoogleEvent(googleEvent) {
 }
 
 /**
- * Outlook 形式の recurrence オブジェクトから Google 形式の recurrence 配列を構築する。
+ * [未点検] Outlook 形式の recurrence オブジェクトから Google 形式の recurrence 配列を構築する。
  * @param {Object} outlookRecurrence Outlook Graph API の recurrence オブジェクト
  * @returns {Array<string>|null} Google 形式の recurrence 配列またはnull
  */
@@ -515,7 +525,7 @@ function buildGoogleRecurrenceFromOutlook(outlookRecurrence) {
 }
 
 /**
- * Outlook の recurrenceType を RRULE の FREQ にマッピングする。
+ * [未点検] Outlook の recurrenceType を RRULE の FREQ にマッピングする。
  * @param {string} outlookType Outlook のrecurrenceType（daily, weekly等）
  * @returns {string|null} RRULEのFREQ値
  */
@@ -538,7 +548,7 @@ function mapOutlookTypeToFreq_(outlookType) {
 }
 
 /**
- * Outlook の dayOfWeek 値を RRULE の BYDAY 形式にマッピングする。
+ * [未点検] Outlook の dayOfWeek 値を RRULE の BYDAY 形式にマッピングする。
  * @param {string} outlookDay Outlook の dayOfWeek 値（sunday, monday等）
  * @returns {string|null} RRULE形式の曜日コード（SU, MO等）
  */

@@ -4,7 +4,7 @@ const O365_GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const O365_AUTH_BASE = 'https://login.microsoftonline.com';
 
 /**
- * カレンダー間の同期処理をエントリポイントとして実行する。
+ * [点検中] カレンダー間の同期処理をエントリポイントとして実行する。
  * @param void
  * @returns void
  */
@@ -37,7 +37,7 @@ function syncCalendars() {
 }
 
 /**
- * Google カレンダーから Outlook へイベントを同期する（occurrence 単位）。
+ * [未点検] Google カレンダーから Outlook へイベントを同期する（occurrence 単位）。
  * @param {Array<Object>} googleEvents Google 側の occurrence 配列
  * @param {Object} outlookMaps Outlook 側の参照マップ (byGoogleSyncKey, byOutlookSyncKey)
  * @param {Object} stats 同期集計オブジェクト
@@ -53,7 +53,7 @@ function syncGoogleToOutlook(googleEvents, outlookMaps, stats) {
 }
 
 /**
- * Google カレンダーから Outlook への同期タスクを組み立てる。
+ * [未点検] Google カレンダーから Outlook への同期タスクを組み立てる。
  * @param {Array<Object>} googleEvents Google 側の occurrence 配列
  * @param {Object} outlookMaps Outlook 側の参照マップ
  * @returns {Array<Object>} 同期タスク配列
@@ -126,7 +126,7 @@ function buildGoogleToOutlookSyncTasks_(googleEvents, outlookMaps) {
 }
 
 /**
- * Outlook から Google へイベントを同期する（occurrence 単位）。
+ * [未点検] Outlook から Google へイベントを同期する（occurrence 単位）。
  * @param {Array<Object>} outlookEvents Outlook 側の occurrence 配列
  * @param {Object} googleMaps Google 側の参照マップ (byOutlookSyncKey, byGoogleSyncKey)
  * @param {Object} stats 同期集計オブジェクト
@@ -141,7 +141,7 @@ function syncOutlookToGoogle(outlookEvents, googleMaps, stats) {
 }
 
 /**
- * Outlook から Google への同期タスクを組み立てる。
+ * [未点検] Outlook から Google への同期タスクを組み立てる。
  * @param {Array<Object>} outlookEvents Outlook 側の occurrence 配列
  * @param {Object} googleMaps Google 側の参照マップ
  * @returns {Array<Object>} 同期タスク配列
@@ -214,7 +214,7 @@ function buildOutlookToGoogleSyncTasks_(outlookEvents, googleMaps) {
 }
 
 /**
- * Google → Outlook の同期タスクを実行する。
+ * [未点検] Google → Outlook の同期タスクを実行する。
  * @param {Array<Object>} tasks 同期タスク配列
  * @param {Object} stats 同期集計オブジェクト
  * @returns void
@@ -271,7 +271,7 @@ function executeGoogleToOutlookTasks_(tasks, stats) {
 }
 
 /**
- * Outlook → Google の同期タスクを実行する。
+ * [未点検] Outlook → Google の同期タスクを実行する。
  * @param {Array<Object>} tasks 同期タスク配列
  * @param {Object} stats 同期集計オブジェクト
  * @returns void
@@ -330,7 +330,7 @@ function executeOutlookToGoogleTasks_(tasks, stats) {
 }
 
 /**
- * Google イベント（occurrence を含む）の syncKey を生成する。
+ * [未点検] Google イベント（occurrence を含む）の syncKey を生成する。
  * occurrence: google:<recurringEventId>:<originalStartTime>
  * single event: google:<eventId>
  * @param {Object} event 正規化された Google イベント
@@ -347,7 +347,7 @@ function generateGoogleSyncKey(event) {
 }
 
 /**
- * Outlook イベント（occurrence を含む）の syncKey を生成する。
+ * [未点検] Outlook イベント（occurrence を含む）の syncKey を生成する。
  * occurrence: outlook:<uid>:<occurrenceDate>
  * @param {Object} event 正規化された Outlook イベント
  * @returns {string} syncKey
@@ -363,7 +363,7 @@ function generateOutlookSyncKey(event) {
 }
 
 /**
- * Google イベント配列から syncKey をキーにした Map を構築する。
+ * [未点検] Google イベント配列から syncKey をキーにした Map を構築する。
  * @param {Array<Object>} googleEvents Google 側のイベント配列
  * @returns {Object} { bySyncKey, byGoogleSyncKey, byGoogleSyncKey } のマップオブジェクト
  */
@@ -390,7 +390,7 @@ function buildGoogleMaps(googleEvents) {
 }
 
 /**
- * Outlook イベント配列から syncKey をキーにした Map を構築する。
+ * [未点検] Outlook イベント配列から syncKey をキーにした Map を構築する。
  * @param {Array<Object>} outlookEvents Outlook 側のイベント配列
  * @returns {Object} { bySyncKey, byOutlookSyncKey } のマップオブジェクト
  */
@@ -417,7 +417,7 @@ function buildOutlookMaps(outlookEvents) {
 }
 
 /**
- * イベントの説明文から同期用の ID 情報を抽出する。
+ * [未点検] イベントの説明文から同期用の ID 情報を抽出する。
  * @param {string} description イベントの説明テキスト
  * @returns {{outlookSyncKey:string,googleSyncKey:string}} 抽出した ID 情報
  */
@@ -448,7 +448,7 @@ function parseIds(description) {
 }
 
 /**
- * イベント説明文を ID 抽出しやすいプレーンテキストへ整形する。
+ * [未点検] イベント説明文を ID 抽出しやすいプレーンテキストへ整形する。
  * @param {string} description イベント説明文（HTML/テキスト）
  * @returns {string} 整形後のテキスト
  */
@@ -470,7 +470,7 @@ function normalizeDescriptionText_(description) {
 }
 
 /**
- * Google イベントに対応する Outlook 側のターゲットイベントを解決する。
+ * [未点検] Google イベントに対応する Outlook 側のターゲットイベントを解決する。
  * @param {Object} googleEvent Google 側のイベントオブジェクト
  * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
  * @param {Object} outlookMaps Outlook 側の参照マップ
@@ -495,7 +495,7 @@ function resolveOutlookTargetEvent_(googleEvent, ids, outlookMaps) {
 }
 
 /**
- * Outlook イベントに対応する Google 側のターゲットイベントを解決する。
+ * [未点検] Outlook イベントに対応する Google 側のターゲットイベントを解決する。
  * @param {Object} outlookEvent Outlook 側のイベントオブジェクト
  * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
  * @param {Object} googleMaps Google 側の参照マップ
@@ -517,7 +517,7 @@ function resolveGoogleTargetEvent_(outlookEvent, ids, googleMaps) {
 }
 
 /**
- * 同期アクションをコンソール出力するユーティリティ。
+ * [未点検] 同期アクションをコンソール出力するユーティリティ。
  * @param {string} direction 同期方向のラベル（例: 'Google → Outlook'）
  * @param {string} action アクション（'create'|'update'|'delete'）
  * @param {string} eventName イベント名
@@ -530,7 +530,7 @@ function logAction(direction, action, eventName) {
 }
 
 /**
- * 同期結果のサマリをコンソールに出力する。
+ * [未点検] 同期結果のサマリをコンソールに出力する。
  * @param {Object} stats 同期の集計情報オブジェクト
  * @returns void
  */
@@ -545,7 +545,7 @@ function outputSummaryLog(stats) {
 }
 
 /**
- * `syncCalendars` を30分毎に実行するトリガーをセットする。
+ * [未点検] `syncCalendars` を30分毎に実行するトリガーをセットする。
  * @param void
  * @returns void
  */
@@ -562,7 +562,7 @@ function installThirtyMinuteTrigger() {
 }
 
 /**
- * 同期キー用の occurrence 日時文字列へ正規化する。
+ * [未点検] 同期キー用の occurrence 日時文字列へ正規化する。
  * @param {Object|string|Date} value 日時情報
  * @returns {string} 正規化済み日時文字列
  */
@@ -605,7 +605,7 @@ function normalizeOccurrenceDateText_(value) {
 }
 
 /**
- * Google イベントから Outlook 作成用のペイロードを構築する。
+ * [未点検] Google イベントから Outlook 作成用のペイロードを構築する。
  * @param {Object} googleEvent Google のイベントオブジェクト
  * @returns {Object} Outlook API 用のイベントペイロード
  */
@@ -676,7 +676,7 @@ function buildOutlookPayloadFromGoogleEvent_(googleEvent) {
 }
 
 /**
- * Outlook イベントから Google 作成用のペイロードを構築する。
+ * [未点検] Outlook イベントから Google 作成用のペイロードを構築する。
  * @param {Object} outlookEvent Outlook のイベントオブジェクト
  * @returns {Object} Google Calendar API 用のイベントペイロード
  */
@@ -716,7 +716,7 @@ function buildGooglePayloadFromOutlookEvent_(outlookEvent) {
 }
 
 /**
- * デフォルトの Google イベント開始日時を現在時刻で構築する。
+ * [未点検] デフォルトの Google イベント開始日時を現在時刻で構築する。
  * @param void
  * @returns {{dateTime:string,timeZone:string}} Google イベントの開始情報
  */
@@ -733,7 +733,7 @@ function buildDefaultGoogleStart_() {
 }
 
 /**
- * Outlook 形式の日時文字列を構築する（終日の場合も対応）。
+ * [未点検] Outlook 形式の日時文字列を構築する（終日の場合も対応）。
  * @param {string|Date} value 日時または日付文字列/Date オブジェクト
  * @param {boolean} allDay 終日フラグ
  * @returns {string} Outlook 用の日時文字列
@@ -760,7 +760,7 @@ function buildOutlookDateTimeString_(value, allDay) {
 }
 
 /**
- * 終日イベント用の Outlook 日付時刻文字列を作成する。
+ * [未点検] 終日イベント用の Outlook 日付時刻文字列を作成する。
  * @param {string|Date} value 日付または日時
  * @returns {string} 終日用の日時文字列（例: YYYY-MM-DDT00:00:00）
  */
@@ -786,7 +786,7 @@ function toOutlookAllDayDateTime_(value) {
 }
 
 /**
- * Outlook API 由来の日時情報を Google 用に正規化する。
+ * [未点検] Outlook API 由来の日時情報を Google 用に正規化する。
  * @param {Object|string} value Outlook の日時フィールドまたは文字列
  * @param {Object} outlookEvent 該当 Outlook イベント（オプション）
  * @returns {Object|null} 正規化された日時オブジェクトまたは null
@@ -836,7 +836,7 @@ function normalizeOutlookCalendarDateTime_(value, outlookEvent) {
 }
 
 /**
- * Outlook イベントのマージを行い次のペイロードを作る。
+ * [未点検] Outlook イベントのマージを行い次のペイロードを作る。
  * @param {Object} currentEvent 現在の Outlook イベントオブジェクト
  * @param {Object} nextPayload 更新用のペイロード
  * @returns {Object} マージ後のイベントオブジェクト
@@ -848,7 +848,7 @@ function mergeOutlookEventPayload_(currentEvent, nextPayload) {
 }
 
 /**
- * Google イベントのマージを行い次のペイロードを作る。
+ * [未点検] Google イベントのマージを行い次のペイロードを作る。
  * @param {Object} currentEvent 現在の Google イベントオブジェクト
  * @param {Object} nextPayload 更新用のペイロード
  * @returns {Object} マージ後のイベントオブジェクト
@@ -858,7 +858,7 @@ function mergeGoogleEventPayload_(currentEvent, nextPayload) {
 }
 
 /**
- * Outlook イベントが更新対象かどうかを判定する。
+ * [未点検] Outlook イベントが更新対象かどうかを判定する。
  * @param {Object} currentEvent 現在の Outlook イベント
  * @param {Object} nextPayload 比較対象の次ペイロード
  * @returns {boolean} 更新が必要なら true
@@ -900,7 +900,7 @@ function shouldUpdateOutlookEvent_(currentEvent, nextPayload) {
 }
 
 /**
- * Outlook イベントの更新判定用に、同期メタデータを除いた比較形式へ正規化する。
+ * [未点検] Outlook イベントの更新判定用に、同期メタデータを除いた比較形式へ正規化する。
  * @param {Object} event Outlook イベントオブジェクト
  * @returns {Object} 比較用に正規化されたイベント情報
  */
@@ -912,7 +912,7 @@ function normalizeOutlookEventForCompare_(event) {
 }
 
 /**
- * 同期用メタデータ行を本文から取り除く。
+ * [未点検] 同期用メタデータ行を本文から取り除く。
  * @param {string} text 対象テキスト
  * @returns {string} メタデータを除去したテキスト
  */
@@ -930,7 +930,7 @@ function stripSyncMetadataFromText_(text) {
 }
 
 /**
- * Google イベントが更新対象かどうかを判定する。
+ * [未点検] Google イベントが更新対象かどうかを判定する。
  * @param {Object} currentEvent 現在の Google イベント
  * @param {Object} nextPayload 比較対象の次ペイロード
  * @returns {boolean} 更新が必要なら true
@@ -943,7 +943,7 @@ function shouldUpdateGoogleEvent_(currentEvent, nextPayload) {
 }
 
 /**
- * Outlook イベントを比較しやすい形に正規化する。
+ * [未点検] Outlook イベントを比較しやすい形に正規化する。
  * @param {Object} event Outlook イベントオブジェクト
  * @returns {Object} 正規化されたイベント情報
  */
@@ -976,7 +976,7 @@ function normalizeOutlookEvent_(event) {
 }
 
 /**
- * Google イベントを比較しやすい形に正規化する。
+ * [未点検] Google イベントを比較しやすい形に正規化する。
  * @param {Object} event Google イベントオブジェクト
  * @returns {Object} 正規化されたイベント情報
  */
@@ -1005,7 +1005,7 @@ function normalizeGoogleEvent_(event) {
 }
 
 /**
- * Google の透明性(transparency) を Outlook の showAs にマッピングする。
+ * [未点検] Google の透明性(transparency) を Outlook の showAs にマッピングする。
  * @param {string} transparency Google の透明性値
  * @returns {string} Outlook 用の showAs 値
  */
@@ -1014,7 +1014,7 @@ function mapGoogleTransparencyToOutlook_(transparency) {
 }
 
 /**
- * Outlook の showAs を Google の transparency にマッピングする。
+ * [未点検] Outlook の showAs を Google の transparency にマッピングする。
  * @param {string} showAs Outlook の showAs 値
  * @returns {string} Google 用の transparency 値
  */
@@ -1023,7 +1023,7 @@ function mapOutlookShowAsToGoogle_(showAs) {
 }
 
 /**
- * Google の visibility を Outlook の sensitivity にマッピングする。
+ * [未点検] Google の visibility を Outlook の sensitivity にマッピングする。
  * @param {string} visibility Google の visibility 値
  * @returns {string} Outlook 用の sensitivity 値
  */
@@ -1032,7 +1032,7 @@ function mapGoogleVisibilityToOutlook_(visibility) {
 }
 
 /**
- * Outlook の sensitivity を Google の visibility にマッピングする。
+ * [未点検] Outlook の sensitivity を Google の visibility にマッピングする。
  * @param {string} sensitivity Outlook の sensitivity 値
  * @returns {string} Google 用の visibility 値
  */
@@ -1041,7 +1041,7 @@ function mapOutlookSensitivityToGoogle_(sensitivity) {
 }
 
 /**
- * 指定タイムゾーンで ISO 風文字列を生成するユーティリティ。
+ * [未点検] 指定タイムゾーンで ISO 風文字列を生成するユーティリティ。
  * @param {string|Date} value 日時または Date オブジェクト
  * @returns {string} 変換後の文字列
  */
@@ -1065,7 +1065,7 @@ function toIsoStringInTimeZone_(value) {
 }
 
 /**
- * Google イベントの説明に Outlook の ID を埋め込みて更新する。
+ * [未点検] Google イベントの説明に Outlook の ID を埋め込みて更新する。
  * @param {Object} googleEvent Google イベントオブジェクト
  * @param {string} outlookSyncKey Outlook のイベント同期キー
  * @returns void
@@ -1084,7 +1084,7 @@ function updateGoogleEventWithOutlookSyncKey_(googleEvent, outlookSyncKey) {
 }
 
 /**
- * Outlook イベントの説明に Google の ID を埋め込みて更新する。
+ * [未点検] Outlook イベントの説明に Google の ID を埋め込みて更新する。
  * @param {Object} outlookEvent Outlook イベントオブジェクト
  * @param {string} googleSyncKey Google のイベント同期キー
  * @returns void

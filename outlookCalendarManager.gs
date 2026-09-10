@@ -1,5 +1,5 @@
 /**
- * スクリプトプロパティに設定された ICS URL を取得して内容を返す。
+ * [未点検] スクリプトプロパティに設定された ICS URL を取得して内容を返す。
  * @param void
  * @returns {string} ICS テキスト（取得失敗時は空文字）
  */
@@ -20,7 +20,7 @@ function fetchIcs() {
 }
 
 /**
- * ICS の折り返し行を復元して 1 行ずつにするユーティリティ。
+ * [未点検] ICS の折り返し行を復元して 1 行ずつにするユーティリティ。
  * @param {Array<string>} lines ICS の行配列
  * @returns {Array<string>} 折り返しを展開した行配列
  */
@@ -40,7 +40,7 @@ function unfoldIcsLines_(lines) {
 }
 
 /**
- * 受け取った VEVENT の配列から繰り返し展開を行いフラットなイベント配列を返す。
+ * [未点検] 受け取った VEVENT の配列から繰り返し展開を行いフラットなイベント配列を返す。
  * @param {Array<Object>} events ICS から抽出したイベントオブジェクト配列
  * @param {Date} startDate 展開ウィンドウ開始
  * @param {Date} endDate 展開ウィンドウ終了
@@ -70,7 +70,7 @@ function expandRecurringEvents(events, startDate, endDate) {
 }
 
 /**
- * 単一のシリーズ（同一 UID の複数 VEVENT）を繰り返しルールに基づき展開する。
+ * [未点検] 単一のシリーズ（同一 UID の複数 VEVENT）を繰り返しルールに基づき展開する。
  * @param {Array<Object>} seriesEvents シリーズに属する VEVENT 配列
  * @param {Date} startDate 展開ウィンドウ開始
  * @param {Date} endDate 展開ウィンドウ終了
@@ -175,7 +175,7 @@ function expandRecurringSeries_(seriesEvents, startDate, endDate) {
 }
 
 /**
- * マスターイベントから単一の発生日の発生イベントを構築する。
+ * [未点検] マスターイベントから単一の発生日の発生イベントを構築する。
  * @param {Object} master シリーズのマスターイベント
  * @param {Date} startDate 発生日の開始日時
  * @param {number} durationMs 期間（ミリ秒）
@@ -218,7 +218,7 @@ function buildRecurringOccurrence_(master, startDate, durationMs, allDay) {
 }
 
 /**
- * 発生日の開始日時を生成する（終日の場合は時間を除去）。
+ * [未点検] 発生日の開始日時を生成する（終日の場合は時間を除去）。
  * @param {Date} candidateDate 発生日候補の Date
  * @param {Date} masterStartDate マスターの開始日時
  * @param {boolean} allDay 終日フラグ
@@ -240,7 +240,7 @@ function buildOccurrenceStart_(candidateDate, masterStartDate, allDay) {
 }
 
 /**
- * 指定日が RRULE にマッチするか判定する。
+ * [未点検] 指定日が RRULE にマッチするか判定する。
  * @param {Date} candidateDate 判定対象の日付
  * @param {Date} masterStartDate マスター開始日
  * @param {Object} rule 解析済みの RRULE オブジェクト
@@ -308,7 +308,7 @@ function matchesRrule_(candidateDate, masterStartDate, rule) {
 }
 
 /**
- * BYDAY 条件にマッチするかを判定するヘルパー。
+ * [未点検] BYDAY 条件にマッチするかを判定するヘルパー。
  * @param {Date} candidateDate 判定対象の日付
  * @param {Array<Object>} bydayTokens BYDAY トークン配列
  * @param {number} [fallbackDay] フォールバックの曜日番号
@@ -326,7 +326,7 @@ function matchesByDay_(candidateDate, bydayTokens, fallbackDay) {
 }
 
 /**
- * RRULE テキストを解析してオブジェクトに変換する。
+ * [未点検] RRULE テキストを解析してオブジェクトに変換する。
  * @param {string} rruleText RRULE の生テキスト
  * @returns {Object} 解析結果のルールオブジェクト
  */
@@ -375,7 +375,7 @@ function parseRrule_(rruleText) {
 }
 
 /**
- * BYDAY リスト文字列を解析してトークン配列を返す。
+ * [未点検] BYDAY リスト文字列を解析してトークン配列を返す。
  * @param {string} value BYDAY のカンマ区切り文字列
  * @returns {Array<Object>} {ordinal:number,weekday:number} の配列
  */
@@ -395,7 +395,7 @@ function parseByDayList_(value) {
 }
 
 /**
- * BYDAY のトークンを曜日番号にマッピングする。
+ * [未点検] BYDAY のトークンを曜日番号にマッピングする。
  * @param {string} token 曜日トークン（SU,MO,..）
  * @returns {number} 曜日番号（0=Sun ... 6=Sat）、不明なら -1
  */
@@ -421,7 +421,7 @@ function mapWeekdayToken_(token) {
 }
 
 /**
- * シリーズ中の EXDATE を解析して Set を構築する。
+ * [未点検] シリーズ中の EXDATE を解析して Set を構築する。
  * @param {Array<Object>} seriesEvents シリーズに属するイベント配列
  * @returns {Set<string>} 発生日キーの集合
  */
@@ -450,7 +450,7 @@ function buildExdateSet_(seriesEvents) {
 }
 
 /**
- * シリーズ中のオーバーライド（RECURRENCE-ID を持つイベント）をマップ化する。
+ * [未点検] シリーズ中のオーバーライド（RECURRENCE-ID を持つイベント）をマップ化する。
  * @param {Array<Object>} seriesEvents シリーズに属するイベント配列
  * @returns {Map<string,Object>} 発生日キーをキーとするオーバーライドマップ
  */
@@ -471,7 +471,7 @@ function buildOverrideMap_(seriesEvents) {
 }
 
 /**
- * ICS の日時値から発生日キーを生成する。
+ * [未点検] ICS の日時値から発生日キーを生成する。
  * @param {string} value ICS の日時値
  * @param {boolean} allDay 終日フラグ
  * @returns {string} 発生日キー
@@ -482,7 +482,7 @@ function buildOccurrenceKeyFromIcsValue_(value, allDay) {
 }
 
 /**
- * イベントオブジェクトから発生日キーを生成する。
+ * [未点検] イベントオブジェクトから発生日キーを生成する。
  * @param {Object} event イベントオブジェクト
  * @returns {string} 発生日キー
  */
@@ -496,7 +496,7 @@ function buildOccurrenceKeyFromEvent_(event) {
 }
 
 /**
- * Date から発生日キーを生成するユーティリティ。
+ * [未点検] Date から発生日キーを生成するユーティリティ。
  * @param {Date} date 発生日の Date
  * @param {boolean} allDay 終日フラグ
  * @returns {string} 発生日キー
@@ -511,7 +511,7 @@ function buildOccurrenceKey_(date, allDay) {
 }
 
 /**
- * 発生日キーで比較してソート用の比較値を返す。
+ * [未点検] 発生日キーで比較してソート用の比較値を返す。
  * @param {Object} left 左側イベント
  * @param {Object} right 右側イベント
  * @returns {number} 比較結果 -1/0/1
@@ -529,7 +529,7 @@ function compareOccurrenceStart_(left, right) {
 }
 
 /**
- * イベントが指定ウィンドウと重複するか判定する。
+ * [未点検] イベントが指定ウィンドウと重複するか判定する。
  * @param {Object} event イベント（start, end を含む）
  * @param {Date} startDate ウィンドウ開始
  * @param {Date} endDate ウィンドウ終了
@@ -547,7 +547,7 @@ function eventOverlapsWindow_(event, startDate, endDate) {
 }
 
 /**
- * 指定日付に日数を加算した新しい Date を返す。
+ * [未点検] 指定日付に日数を加算した新しい Date を返す。
  * @param {Date} date ベース日付
  * @param {number} days 加算する日数（負数可）
  * @returns {Date} 計算結果の Date
@@ -559,7 +559,7 @@ function addDays_(date, days) {
 }
 
 /**
- * Date から時刻情報を除去して日付のみの Date を返す。
+ * [未点検] Date から時刻情報を除去して日付のみの Date を返す。
  * @param {Date} date 入力の Date
  * @returns {Date} 時刻を除去した Date
  */
@@ -568,7 +568,7 @@ function stripTime_(date) {
 }
 
 /**
- * ICS イベントオブジェクトから指定フィールドの値を取得する。
+ * [未点検] ICS イベントオブジェクトから指定フィールドの値を取得する。
  * @param {Object} event ICS のイベントオブジェクト
  * @param {string} fieldName フィールド名（例: 'exdate'）
  * @returns {string} フィールド値（存在しなければ空文字）
@@ -579,7 +579,7 @@ function getIcsFieldValue_(event, fieldName) {
 }
 
 /**
- * ICS イベントオブジェクトのキー一覧から指定フィールドに該当する実キーを見つける。
+ * [未点検] ICS イベントオブジェクトのキー一覧から指定フィールドに該当する実キーを見つける。
  * @param {Object} event ICS のイベントオブジェクト
  * @param {string} fieldName 欲しいフィールド名
  * @returns {string} 実際のキー名（無ければ空文字）
@@ -595,7 +595,7 @@ function findIcsFieldKey_(event, fieldName) {
 }
 
 /**
- * ICS の日時フィールドの生値と終日判定を返す。
+ * [未点検] ICS の日時フィールドの生値と終日判定を返す。
  * @param {Object} event ICS のイベントオブジェクト
  * @param {string} fieldName フィールド名（'dtstart' 等）
  * @returns {{raw:string,allDay:boolean}} 生値と終日フラグ
@@ -610,7 +610,7 @@ function getIcsDateTimeInfo_(event, fieldName) {
 }
 
 /**
- * ICS の日時表記（YYYYMMDD, YYYYMMDDTHHMMSSZ 等）を Date に変換する。
+ * [未点検] ICS の日時表記（YYYYMMDD, YYYYMMDDTHHMMSSZ 等）を Date に変換する。
  * @param {string} value ICS の日時文字列
  * @param {boolean} allDay 終日フラグ
  * @returns {Date|null} 変換結果の Date、失敗時は null
@@ -654,7 +654,7 @@ function toDateFromIcsValue_(value, allDay) {
 }
 
 /**
- * Outlook イベントを取得する。ICS URL が設定されていれば ICS をパースして返す。
+ * [未点検] Outlook イベントを取得する。ICS URL が設定されていれば ICS をパースして返す。
  * 新仕様: RRULE を展開して occurrence を生成する。
  * @param {Date} startDate 取得開始日時
  * @param {Date} endDate 取得終了日時
@@ -692,7 +692,7 @@ function fetchOutlookEvents(startDate, endDate) {
 }
 
 /**
- * Outlook Graph API を呼び出し、401 ならトークンリフレッシュして再試行する。
+ * [未点検] Outlook Graph API を呼び出し、401 ならトークンリフレッシュして再試行する。
  * @param {string} url API エンドポイント URL
  * @param {Object} options UrlFetchApp に渡すオプション
  * @returns {HTTPResponse} UrlFetchApp のレスポンスオブジェクト
@@ -713,7 +713,7 @@ function fetchOutlookGraph_(url, options) {
 }
 
 /**
- * Outlook にイベントを作成する (Graph API POST)。
+ * [未点検] Outlook にイベントを作成する (Graph API POST)。
  * @param {Object} eventData Outlook 用のイベントデータ
  * @returns {Object} 作成されたイベントのレスポンス（JSON）
  */
@@ -736,7 +736,7 @@ function createOutlookEvent(eventData) {
 }
 
 /**
- * Outlook のイベントを更新する (Graph API PATCH)。
+ * [未点検] Outlook のイベントを更新する (Graph API PATCH)。
  * @param {string} eventId 更新対象のイベント ID
  * @param {Object} eventData 更新データ
  * @returns {string|HTTPResponse} API の応答ボディまたはレスポンス
@@ -760,7 +760,7 @@ function updateOutlookEvent(eventId, eventData) {
 }
 
 /**
- * Outlook のイベントを削除する (Graph API DELETE)。
+ * [未点検] Outlook のイベントを削除する (Graph API DELETE)。
  * @param {string} eventId 削除対象のイベント ID
  * @returns {number} HTTP ステータスコード
  */
@@ -780,7 +780,7 @@ function deleteOutlookEvent(eventId) {
 }
 
 /**
- * Outlook API のベースパス（カレンダー ID を含む）を返す。
+ * [未点検] Outlook API のベースパス（カレンダー ID を含む）を返す。
  * @param void
  * @returns {string} ベースパス文字列
  */
@@ -794,7 +794,7 @@ function getOutlookCalendarBasePath_() {
 }
 
 /**
- * スクリプトプロパティからアクセストークンを取得し、無ければリフレッシュを試みる。
+ * [未点検] スクリプトプロパティからアクセストークンを取得し、無ければリフレッシュを試みる。
  * @param void
  * @returns {string} 利用可能なアクセストークン
  */
@@ -817,7 +817,7 @@ function getAccessToken() {
 }
 
 /**
- * Outlook 用の説明文を組み立てる（`googleSyncKey` を付加）。
+ * [未点検] Outlook 用の説明文を組み立てる（`googleSyncKey` を付加）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
  * @param {string} googleSyncKey Google のイベント同期キー
  * @returns {string} 組み立てた説明文
@@ -838,7 +838,7 @@ function buildOutlookDescription(event, googleSyncKey) {
 }
 
 /**
- * Graph API のイベントを内部で扱う正規化形式に変換する。
+ * [未点検] Graph API のイベントを内部で扱う正規化形式に変換する。
  * @param {Object} event Graph API のイベントオブジェクト
  * @returns {Object} 正規化されたイベントオブジェクト
  */
@@ -865,7 +865,7 @@ function normalizeOutlookCalendarEvent_(event) {
 }
 
 /**
- * ICS 由来または内部形式の Outlook イベントを正規化する。
+ * [未点検] ICS 由来または内部形式の Outlook イベントを正規化する。
  * @param {Object} event イベントオブジェクト
  * @returns {Object} 正規化されたイベントオブジェクト
  */
@@ -922,7 +922,7 @@ function normalizeOutlookEvent_(event) {
 }
 
 /**
- * ICS の日時表現を正規化して文字列にするユーティリティ。
+ * [未点検] ICS の日時表現を正規化して文字列にするユーティリティ。
  * @param {string} value ICS の日時値
  * @returns {string} 正規化済み日時文字列
  */
@@ -948,7 +948,7 @@ function normalizeIcsDateTime_(value) {
 }
 
 /**
- * Outlook Graph API に渡すイベントリソースを構築する。
+ * [未点検] Outlook Graph API に渡すイベントリソースを構築する。
  * @param {Object} eventData 内部表現のイベントデータ
  * @returns {Object} Graph API 用のイベントオブジェクト
  */
@@ -986,7 +986,7 @@ function buildOutlookCalendarResource_(eventData) {
 }
 
 /**
- * 指定日時を同期タイムゾーンで API 用日時（ISO 形式、オフセットなし）にフォーマットする。
+ * [未点検] 指定日時を同期タイムゾーンで API 用日時（ISO 形式、オフセットなし）にフォーマットする。
  * @param {Date|string} value Date オブジェクトまたは日時文字列
  * @returns {string} API 用の日時文字列
  */
@@ -1001,7 +1001,7 @@ function buildApiDateTimeInSyncTimezone_(value) {
 }
 
 /**
- * ICS の TRANSP 値を Outlook Graph API の showAs 値にマッピングする。
+ * [未点検] ICS の TRANSP 値を Outlook Graph API の showAs 値にマッピングする。
  * @param {string} transp ICS の TRANSP 値（'TRANSPARENT' or 'OPAQUE'）
  * @returns {string} Outlook の showAs 値（'free' or 'busy'）
  */
@@ -1014,7 +1014,7 @@ function mapIcsTranspToShowAs_(transp) {
 }
 
 /**
- * ICS の CLASS 値を Outlook Graph API の sensitivity 値にマッピングする。
+ * [未点検] ICS の CLASS 値を Outlook Graph API の sensitivity 値にマッピングする。
  * @param {string} classValue ICS の CLASS 値（'PUBLIC', 'PRIVATE', 'CONFIDENTIAL'）
  * @returns {string} Outlook の sensitivity 値（'normal', 'private', 'confidential'）
  */
@@ -1030,7 +1030,7 @@ function mapIcsClassToSensitivity_(classValue) {
 }
 
 /**
- * Outlook イベント（ICS由来）から Google 形式の recurrence 配列を抽出する。
+ * [未点検] Outlook イベント（ICS由来）から Google 形式の recurrence 配列を抽出する。
  * RRULEやEXDATEをGoogle形式に変換する。
  * @param {Object} outlookEvent Outlook のイベントオブジェクト（ICS由来）
  * @returns {Array<string>|null} Google 形式の recurrence 配列（RRULE形式）またはnull
@@ -1067,7 +1067,7 @@ function extractRecurrenceFromOutlookEvent(outlookEvent) {
 }
 
 /**
- * Google イベント（recurrence情報を含む）から Outlook 形式の recurrence オブジェクトを構築する。
+ * [未点検] Google イベント（recurrence情報を含む）から Outlook 形式の recurrence オブジェクトを構築する。
  * Google の recurrence 配列（RRULE形式）を Outlook の recurrence オブジェクトに変換する。
  * @param {Array<string>} googleRecurrence Google 形式の recurrence 配列（例: ["RRULE:FREQ=DAILY"]）
  * @returns {Object|null} Outlook の recurrence オブジェクトまたは null
@@ -1107,7 +1107,7 @@ function buildOutlookRecurrenceFromGoogle(googleRecurrence) {
 }
 
 /**
- * RRULEを解析してOutlook Graph API 互換の recurrence オブジェクトを構築する。
+ * [未点検] RRULEを解析してOutlook Graph API 互換の recurrence オブジェクトを構築する。
  * @param {string} rruleText RRULE文字列（例: "FREQ=DAILY;INTERVAL=1"）
  * @returns {Object} Outlook の recurrence オブジェクト
  */
@@ -1153,7 +1153,7 @@ function parseRruleForOutlook_(rruleText) {
 }
 
 /**
- * FREQ値をOutlook形式の recurrenceType にマッピングする。
+ * [未点検] FREQ値をOutlook形式の recurrenceType にマッピングする。
  * @param {string} freq FREQ値（DAILY, WEEKLY, MONTHLY, YEARLY等）
  * @returns {string} Outlook の recurrenceType（daily, weekly, absoluteMonthly等）
  */
@@ -1174,7 +1174,7 @@ function mapFreqToOutlookRecurrenceType_(freq) {
 }
 
 /**
- * 曜日番号（0=Sun...6=Sat）を Outlook の dayOfWeek 値にマッピングする。
+ * [未点検] 曜日番号（0=Sun...6=Sat）を Outlook の dayOfWeek 値にマッピングする。
  * @param {number} weekday 曜日番号
  * @returns {string} Outlook の dayOfWeek 値（sunday, monday等）
  */
@@ -1192,7 +1192,7 @@ function mapWeekdayToOutlookDay_(weekday) {
 }
 
 /**
- * ICS テキストをパースしてイベント配列に変換する（RRULE 展開なし）。
+ * [未点検] ICS テキストをパースしてイベント配列に変換する（RRULE 展開なし）。
  * マスターイベント（RRULE付き）をそのまま返す。
  * @param {string} icsText ICS の生テキスト
  * @param {Date} startDate 取得開始日時（ウィンドウ）
@@ -1254,7 +1254,7 @@ function parseIcs(icsText, startDate, endDate) {
 }
 
 /**
- * ICS のイベントオブジェクトを Outlook イベント形式に正規化する（RRULE保持版）。
+ * [未点検] ICS のイベントオブジェクトを Outlook イベント形式に正規化する（RRULE保持版）。
  * @param {Object} event ICS から抽出したイベントオブジェクト
  * @returns {Object} 正規化された Outlook イベントオブジェクト
  */
