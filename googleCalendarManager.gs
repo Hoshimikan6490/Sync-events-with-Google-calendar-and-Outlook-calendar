@@ -121,7 +121,7 @@ function normalizeGoogleCalendarEvent_(event) {
 	const endNormalized = normalizeGoogleDateTime(event.end);
 
 	// 内部表現は Outlook 仕様をメインとする（subject, showAs, sensitivity など）
-	const isAllDay = Boolean(startNormalized.start && startNormalized.start.date);
+	const isAllDay = Boolean(startNormalized.isAllDay && endNormalized.isAllDay);
 	return {
 		id: event.id,
 
@@ -132,12 +132,9 @@ function normalizeGoogleCalendarEvent_(event) {
 			event.location || (event.location && event.location.displayName) || '',
 		// start/end は既に正規化済みのオブジェクトをそのまま使う
 		isAllDay: isAllDay,
-		timezone:
-			event.start && event.start.timeZone
-				? event.start.timeZone
-				: SYNC_TIMEZONE,
-		start: startNormalized.start || {},
-		end: endNormalized.start || {},
+		timezone: SYNC_TIMEZONE,
+		start: startNormalized.dateTime,
+		end: endNormalized.dateTime,
 		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
 		showAs: mapTransparencyToShowAs(event.transparency),
 		sensitivity: mapVisibilityToSensitivity(event.visibility),
@@ -152,39 +149,48 @@ function normalizeGoogleCalendarEvent_(event) {
 }
 
 /**
- * [未点検] Google Calendar API の datetime オブジェクトをUTC + timeZone形式に正規化する。
- * RFC3339 with offset の形式をUTC+タイムゾーン形式に変換する。
+ * [点検済み] Google Calendar API の datetime オブジェクトを正規化する。
  * @param {Object} googleDateTime Google の start/end オブジェクト {dateTime, date, timeZone}
- * @returns {Object} 正規化されたオブジェクト {dateTime（UTC）, timeZone, start}
+ * @returns {Object} 正規化されたオブジェクト {isAllDay:boolean, dateTime:string, timeZone:string}
  */
 function normalizeGoogleDateTime(googleDateTime) {
 	if (!googleDateTime) {
-		return { dateTime: '', timeZone: SYNC_TIMEZONE, start: {} };
+		throw new Error(
+			"Failed to format Google's DateTime: No value was provided.",
+		);
 	}
 
 	// 全日イベント: date のみ
 	if (googleDateTime.date && !googleDateTime.dateTime) {
+		// googleカレンダーのデフォルトタイムゾーンを取得する
+		const defaultTimeZone = CalendarApp.getDefaultCalendar().getTimeZone();
 		return {
-			dateTime: '',
+			isAllDay: true,
+			dateTime: convertTimeZone(
+				googleDateTime.date,
+				defaultTimeZone || SYNC_TIMEZONE,
+				SYNC_TIMEZONE,
+			),
 			timeZone: SYNC_TIMEZONE,
-			start: { date: googleDateTime.date },
 		};
 	}
 
-	// 時間指定イベント: dateTime（RFC3339 with offset）をUTCに正規化
+	// 時間指定イベント: dateTime が存在する場合
 	if (googleDateTime.dateTime) {
-		const utcDateTime = convertRfc3339ToUtc(googleDateTime.dateTime);
 		return {
-			dateTime: utcDateTime,
+			isAllDay: false,
+			dateTime: convertTimeZone(
+				googleDateTime.dateTime,
+				googleDateTime.timeZone || SYNC_TIMEZONE,
+				SYNC_TIMEZONE,
+			),
 			timeZone: googleDateTime.timeZone || SYNC_TIMEZONE,
-			start: {
-				dateTime: utcDateTime,
-				timeZone: googleDateTime.timeZone || SYNC_TIMEZONE,
-			},
 		};
 	}
 
-	return { dateTime: '', timeZone: SYNC_TIMEZONE, start: {} };
+	throw new Error(
+		`Failed to format Google's DateTime: Unknown format was provided. Value: ${JSON.stringify(googleDateTime)}`,
+	);
 }
 
 /**
@@ -392,7 +398,7 @@ function convertUtcToLocalDateTime_(utcDateTime, timeZone) {
 }
 
 /**
- * [未点検] Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
+ * [点検済み] Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
  * @param {string} transparency Googleのtransparency値（'transparent' または 'opaque'）
  * @returns {string} OutlookのshowAs値（'free' または 'busy'）
  */
@@ -418,7 +424,7 @@ function mapShowAsToTransparency(showAs) {
 }
 
 /**
- * [未点検] Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
+ * [点検済み] Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
  * @param {string} visibility Googleのvisibility値
  * @returns {string} Outlookのsensitivity値
  */
@@ -427,8 +433,7 @@ function mapVisibilityToSensitivity(visibility) {
 		return 'public';
 	} else if (visibility.toLocaleLowerCase() === 'default') {
 		// Googleカレンダーのデフォルトの公開設定を取得し、それに応じてsensitivityを返す
-		const calendar = CalendarApp.getDefaultCalendar();
-		const defaultVisibility = calendar.getVisibility();
+		const defaultVisibility = CalendarApp.getDefaultCalendar().getVisibility();
 		if (defaultVisibility === CalendarApp.Visibility.PUBLIC) {
 			return 'public';
 		} else {
