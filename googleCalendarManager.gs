@@ -124,25 +124,29 @@ function normalizeGoogleCalendarEvent_(event) {
 	const isAllDay = Boolean(startNormalized.start && startNormalized.start.date);
 	return {
 		id: event.id,
+
 		subject: event.summary || '',
 		description: event.description || '',
 		// location は Outlook 側で使う文字列形式を採用
 		location:
 			event.location || (event.location && event.location.displayName) || '',
 		// start/end は既に正規化済みのオブジェクトをそのまま使う
+		isAllDay: isAllDay,
+		timezone:
+			event.start && event.start.timeZone
+				? event.start.timeZone
+				: SYNC_TIMEZONE,
 		start: startNormalized.start || {},
 		end: endNormalized.start || {},
-		isAllDay: isAllDay,
 		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
 		showAs: mapTransparencyToShowAs(event.transparency),
 		sensitivity: mapVisibilityToSensitivity(event.visibility),
-		// TODO: 次回、これ以降の処理を点検する
+		updatedAt: event.updated || null,
+
 		// occurrence 識別用フィールド
-		recurringEventId: event.recurringEventId || null,
-		originalStartTime: event.originalStartTime || null,
-		occurrenceDate: normalizeOccurrenceDateText_(
-			event.originalStartTime || event.start || event.startDateTime || null,
-		),
+		recurrence: yet(), // TODO: 繰り返しイベントをRRULE形式から抽出する関数を定義する必要がある
+
+		// イベントの生データも一応保持しておく
 		raw: event,
 	};
 }
