@@ -12,21 +12,59 @@ function getSyncWindow() {
 }
 
 /**
- * [点検済み] タイムゾーンを比較し、必要に応じて変換する。
- * @param {string} dateTime 変換対象の日時
- * @param {string} fromTimeZone 変換対象の日時のタイムゾーン
+ * [点検済み] タイムゾーンを調整し、YYYY-MM-DDThh:mm:ss形式で返す。
+ * @param {object} dateTimeAndTimeZone 変換対象の日時とタイムゾーン
+ * @param {string} dateTimeAndTimeZone.dateTime 変換対象の日時（YYYY-MM-DDThh:mm:ss）
+ * @param {string} dateTimeAndTimeZone.date 変換対象の日時（YYYY-MM-DD）
+ * @param {string} dateTimeAndTimeZone.timeZone 変換対象の日時のタイムゾーン
  * @param {string} toTimeZone 変換先のタイムゾーン
- * @returns {string} 変換後の日時
+ * @returns {string} 変換後の日時（YYYY-MM-DDThh:mm:ss）
  */
-function convertTimeZone(dateTime, fromTimeZone, toTimeZone) {
-	if (fromTimeZone === toTimeZone) {
-		// タイムゾーンが同じ場合は変換不要
-		return dateTime;
+function convertTimeZone(dateTimeAndTimeZone, toTimeZone) {
+	let dateTimeWithOffset =
+		dateTimeAndTimeZone.dateTime || dateTimeAndTimeZone.date;
+	const fromTimeZone =
+		dateTimeAndTimeZone.timeZone ||
+		CalendarApp.getDefaultCalendar().getTimeZone(); // googleカレンダーのデフォルトタイムゾーンを取得する
+
+	// オフセットがない場合
+	if (!/[+-]\d{2}:\d{2}$|Z$/.test(dateTimeWithOffset)) {
+		/*
+		 * fromTimeZoneの現地時刻として解釈する。
+		 *
+		 * GASのDateは文字列を実行環境のタイムゾーンで
+		 * 解釈する可能性があるため、明示的にオフセットを付ける。
+		 */
+		const offset = getTimeZoneOffset(
+			dateTimeWithOffset,
+			fromTimeZone,
+		);
+
+		dateTimeWithOffset = `${dateTimeWithOffset}${offset}`;
 	}
 
-	const zonedDateTime = Temporal.ZonedDateTime.from(
-		`${dateTime}[${fromTimeZone}]`,
-	);
+	const date = new Date(dateTimeWithOffset);
 
-	return zonedDateTime.withTimeZone(toTimeZone).toPlainDateTime().toString();
+	if (isNaN(date.getTime())) {
+		throw new Error(`Invalid dateTime: ${JSON.stringify(dateTimeAndTimeZone)}`);
+	}
+
+	return Utilities.formatDate(date, toTimeZone, "yyyy-MM-dd'T'HH:mm:ss");
+}
+
+/**
+ * [点検済み] 指定された日時のタイムゾーンオフセットを取得する。
+ * @param {string} dateTime 変換対象の日時
+ * @param {string} timeZone 変換対象の日時のタイムゾーン
+ * @returns {string} +09:00 / -04:00 など
+ */
+function getTimeZoneOffset(dateTime, timeZone) {
+	const date = new Date(`${dateTime}Z`);
+
+	const formatted = Utilities.formatDate(date, timeZone, 'Z');
+
+	const sign = formatted.startsWith('-') ? '-' : '+';
+	const value = formatted.replace(/[+-]/, '');
+
+	return `${sign}${value.slice(0, 2)}:${value.slice(2, 4)}`;
 }

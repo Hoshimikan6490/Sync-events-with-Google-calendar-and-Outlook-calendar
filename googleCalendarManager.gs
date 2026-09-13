@@ -1,5 +1,5 @@
 /**
- * [点検中] 指定期間の Google カレンダーイベントを取得して正規化して返す。
+ * [点検済み] 指定期間の Google カレンダーイベントを取得して正規化して返す。
  * occurrence 単位取得のため、singleEvents は true に設定。
  * @param {Date} startDate 取得開始日時
  * @param {Date} endDate 取得終了日時
@@ -22,28 +22,272 @@ function getGoogleEvents(startDate, endDate) {
 			orderBy: 'startTime',
 		}).items || [];
 
+	const parentCache = new Map();
+
 	return events
-		.map(normalizeGoogleCalendarEvent_)
-		.filter((event) => googleEventOverlapsWindow_(event, startDate, endDate));
+		.map((event) => normalizeGoogleCalendarEvent(event, parentCache))
+		.filter((event) => googleEventOverlapsWindow(event, startDate, endDate));
 }
 
 /**
- * [未点検] Google イベントが指定ウィンドウと重複するか判定する。
+ * [点検済み] Google イベントが指定ウィンドウと重複するか判定する。
  * @param {Object} event Google イベント
  * @param {Date} startDate ウィンドウ開始
  * @param {Date} endDate ウィンドウ終了
  * @returns {boolean} 重複する場合は true
  */
-function googleEventOverlapsWindow_(event, startDate, endDate) {
-	const start = event.start && (event.start.dateTime || event.start.date);
-	const end = event.end && (event.end.dateTime || event.end.date);
+function googleEventOverlapsWindow(event, startDate, endDate) {
+	const start = event.start;
+  const end = event.end;
 	if (!start || !end) {
 		return false;
 	}
 
 	const eventStart = new Date(start).getTime();
-	const eventEnd = new Date(end).getTime();
+  const eventEnd = new Date(end).getTime();
 	return eventEnd >= startDate.getTime() && eventStart <= endDate.getTime();
+}
+
+/**
+ * [点検済み] Google Calendar API のイベントリソースを内部で扱う正規化形式（UTC + timeZone）に変換する。
+ * Google のdateTime（RFC3339 with offset）をUTC + timeZoneに正規化する。
+ * @param {Object} event API のイベントオブジェクト
+ * @param {Map} parentCache 親イベントのキャッシュ
+ * @returns {Object} 正規化されたイベントオブジェクト
+ */
+function normalizeGoogleCalendarEvent(event, parentCache) {
+	const startNormalized = normalizeGoogleDateTime(event.start);
+	const endNormalized = normalizeGoogleDateTime(event.end);
+
+	// 内部表現は Outlook 仕様をメインとする（subject, showAs, sensitivity など）
+	const isAllDay = Boolean(startNormalized.isAllDay && endNormalized.isAllDay);
+	const normalizedEvent = {
+		id: event.id,
+
+		subject: event.summary || '',
+		description: event.description || '',
+		// location は Outlook 側で使う文字列形式を採用
+		location:
+			event.location || (event.location && event.location.displayName) || '',
+		// start/end は既に正規化済みのオブジェクトをそのまま使う
+		isAllDay: isAllDay,
+		timezone: SYNC_TIMEZONE,
+		start: startNormalized.dateTime,
+		end: endNormalized.dateTime,
+		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
+		showAs: mapTransparencyToShowAs(event.transparency),
+		sensitivity: mapVisibilityToSensitivity(event.visibility),
+		updatedAt: event.updated || null,
+
+		// 繰り返しイベントの場合に、親イベントから変更された例外イベントを格納するフィールド
+		exception: null,
+
+		// イベントの生データも一応保持しておく
+		raw: event,
+	};
+
+	// recurringEventIdが無い場合は、通常のイベントとして返す
+	if (!event.recurringEventId) {
+		return normalizedEvent;
+	}
+
+	// recurring eventの親を取得
+	// 同じrecurringEventIdが複数来るので、キャッシュを使って親イベントを取得する
+	const parent = getGoogleRecurringEventParent(
+		event.recurringEventId,
+		parentCache,
+	);
+
+	// 削除された繰り返しイベントのインスタンス（status=cancelled）を制御
+	if (event.status === 'cancelled') {
+		normalizedEvent.exception = createGoogleUpdatedOrDeletedException(
+			event,
+			'deleted',
+		);
+		return normalizedEvent;
+	}
+
+	// 親イベントと比較して、このインスタンスで変更された項目だけを取得する
+	const diff = getGoogleEventDiff(parent, event);
+
+	// 親と完全に同じなら通常の繰り返しイベントとして返し、exceptionは生成しない
+	if (Object.keys(diff).length === 0) {
+		return normalizedEvent;
+	}
+
+	// 親との差分がある場合には変更されたexceptionを生成して返す
+	normalizedEvent.exception = createGoogleUpdatedOrDeletedException(
+		event,
+		'updated',
+		{ diff },
+	);
+
+	return normalizedEvent;
+}
+
+/**
+ * [点検済み] Google Calendar API の datetime オブジェクトを正規化する。
+ * @param {Object} googleDateTime Google の start/end オブジェクト {dateTime, date, timeZone}
+ * @returns {Object} 正規化されたオブジェクト {isAllDay:boolean, dateTime:string, timeZone:string}
+ */
+function normalizeGoogleDateTime(googleDateTime) {
+	if (!googleDateTime) {
+		throw new Error(
+			"Failed to format Google's DateTime: No value was provided.",
+		);
+	}
+
+	// 全日イベント: date のみ
+	if (googleDateTime.date && !googleDateTime.dateTime) {
+		return {
+			isAllDay: true,
+			dateTime: convertTimeZone(googleDateTime, SYNC_TIMEZONE),
+			timeZone: SYNC_TIMEZONE,
+		};
+	}
+
+	// 時間指定イベント: dateTime が存在する場合
+	if (googleDateTime.dateTime) {
+		return {
+			isAllDay: false,
+			dateTime: convertTimeZone(googleDateTime, SYNC_TIMEZONE),
+			timeZone: googleDateTime.timeZone ?? SYNC_TIMEZONE,
+		};
+	}
+
+	throw new Error(
+		`Failed to format Google's DateTime: Unknown format was provided. Value: ${JSON.stringify(googleDateTime)}`,
+	);
+}
+
+/**
+ * [点検済み] Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
+ * @param {string} transparency Googleのtransparency値（'transparent' または 'opaque'）
+ * @returns {string} OutlookのshowAs値（'free' または 'busy'）
+ */
+function mapTransparencyToShowAs(transparency) {
+	// transparencyがtransparentの場合はfree、opaqueまたは未定義の場合はbusyにマッピングする
+	try {
+		if (transparency?.toLowerCase() === 'transparent') {
+			return 'free';
+		}
+		return 'busy';
+	} catch (error) {
+		console.log(`given transparency: ${transparency}`);
+		console.error('Error in mapTransparencyToShowAs:', error);
+	}
+}
+
+/**
+ * [点検済み] Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
+ * @param {string} visibility Googleのvisibility値
+ * @returns {string} Outlookのsensitivity値
+ */
+function mapVisibilityToSensitivity(visibility) {
+	// 明示的に指定されている場合はその値を返す
+	// [重要] Googleのvisibilityは、public, private, defaultのいずれかであり、defaultはそのGoogleカレンダーの共有設定に従うという意味である。今回は、defaultをpublicとして扱う。
+	if (visibility?.toLocaleLowerCase() === 'private') {
+		return 'private';
+	} else {
+		return 'public';
+	}
+}
+
+/**
+ * [点検済み] recurringEventIdから親イベントを取得する。
+ * @param {string} recurringEventId 親イベントのID
+ * @param {Map} parentCache 親イベントのキャッシュ
+ * @returns {Object|null} 親イベントオブジェクトまたはnull
+ */
+function getGoogleRecurringEventParent(recurringEventId, parentCache) {
+	// 親が取得済みならAPIを呼び出さない
+	if (parentCache.has(recurringEventId)) {
+		return parentCache.get(recurringEventId);
+	}
+
+	// recurringEventIdは親イベント自身のIDなので、そっから取得
+	const calendarId = CalendarApp.getDefaultCalendar().getId();
+	const parentEvent = Calendar.Events.get(calendarId, recurringEventId);
+
+	parentCache.set(recurringEventId, parentEvent);
+
+	return parentEvent;
+}
+
+/**
+ * [点検済み] Googleカレンダーの変更または削除された例外イベントを内部表現に変換する。
+ * @param {Object} event Googleの削除された例外イベントオブジェクト
+ * @param {string} type 例外イベントのタイプ（'updated' または 'deleted'）
+ * @param {Object} diff 変更された項目の差分オブジェクト
+ * @returns {Object} 内部表現の削除された例外イベントオブジェクト
+ */
+function createGoogleUpdatedOrDeletedException(event, type, { diff } = {}) {
+	let events;
+	if (type === 'updated') {
+		events = diff;
+	} else if (type === 'deleted') {
+		events = null;
+	}
+
+	return {
+		originalStart: convertTimeZone(event.originalStartTime, SYNC_TIMEZONE),
+		originalTimeZone: event.start.timeZone ?? SYNC_TIMEZONE,
+		status: type,
+		id: event.id,
+		updatedAt: event.updated || null,
+		event: events,
+	};
+}
+
+/**
+ * [点検済み] Googleカレンダーの親イベントとインスタンスを比較し、変更された項目だけを返す。
+ * @param {Object} parent Googleの親イベントオブジェクト
+ * @param {Object} instance Googleのインスタンスイベントオブジェクト
+ * @returns {Object} 変更された項目の差分オブジェクト
+ */
+function getGoogleEventDiff(parent, instance) {
+	const diff = {};
+
+	// Boolean型(isAllDay)の比較
+	const parentIsAllDay = Boolean(parent.start.date && !parent.start.dateTime);
+	const instanceIsAllDay = Boolean(
+		instance.start.date && !instance.start.dateTime,
+	);
+
+	if (parentIsAllDay !== instanceIsAllDay) {
+		diff.isAllDay = instanceIsAllDay;
+	}
+
+	// 日付型(start,end)の比較
+	const compareDateParameters = ['start', 'end'];
+	compareDateParameters.forEach((param) => {
+		const parentDate = normalizeGoogleDateTime(parent[param]);
+		const instanceDate = normalizeGoogleDateTime(instance[param]);
+
+		if (parentDate.dateTime !== instanceDate.dateTime) {
+			diff[param] = instanceDate;
+			diff[`${param}TimeZone`] = instance[param].timeZone ?? SYNC_TIMEZONE;
+		}
+	});
+
+	// 文字列型(subject,description,location,showAs,sensitivity)の比較
+	const compareStringParameters = [
+		'subject',
+		'description',
+		'location',
+		'showAs',
+		'sensitivity',
+	];
+	compareStringParameters.forEach((param) => {
+		const parentValue = parent[param] ?? '';
+		const instanceValue = instance[param] ?? '';
+
+		if (parentValue !== instanceValue) {
+			diff[param] = instanceValue;
+		}
+	});
+
+	return diff;
 }
 
 /**
@@ -108,89 +352,6 @@ function buildGoogleDescription(event, outlookSyncKey) {
 		lines.push(`outlookSyncKey:${outlookSyncKey}`);
 	}
 	return lines.join('\n');
-}
-
-/**
- * [点検中] Google Calendar API のイベントリソースを内部で扱う正規化形式（UTC + timeZone）に変換する。
- * Google のdateTime（RFC3339 with offset）をUTC + timeZoneに正規化する。
- * @param {Object} event API のイベントオブジェクト
- * @returns {Object} 正規化されたイベントオブジェクト
- */
-function normalizeGoogleCalendarEvent_(event) {
-	const startNormalized = normalizeGoogleDateTime(event.start);
-	const endNormalized = normalizeGoogleDateTime(event.end);
-
-	// 内部表現は Outlook 仕様をメインとする（subject, showAs, sensitivity など）
-	const isAllDay = Boolean(startNormalized.isAllDay && endNormalized.isAllDay);
-	return {
-		id: event.id,
-
-		subject: event.summary || '',
-		description: event.description || '',
-		// location は Outlook 側で使う文字列形式を採用
-		location:
-			event.location || (event.location && event.location.displayName) || '',
-		// start/end は既に正規化済みのオブジェクトをそのまま使う
-		isAllDay: isAllDay,
-		timezone: SYNC_TIMEZONE,
-		start: startNormalized.dateTime,
-		end: endNormalized.dateTime,
-		// Google の空き状況および公開状況の設定を Outlook の showAs/sensitivity に変換
-		showAs: mapTransparencyToShowAs(event.transparency),
-		sensitivity: mapVisibilityToSensitivity(event.visibility),
-		updatedAt: event.updated || null,
-
-		// occurrence 識別用フィールド
-		recurrence: yet(), // TODO: 繰り返しイベントをRRULE形式から抽出する関数を定義する必要がある
-
-		// イベントの生データも一応保持しておく
-		raw: event,
-	};
-}
-
-/**
- * [点検済み] Google Calendar API の datetime オブジェクトを正規化する。
- * @param {Object} googleDateTime Google の start/end オブジェクト {dateTime, date, timeZone}
- * @returns {Object} 正規化されたオブジェクト {isAllDay:boolean, dateTime:string, timeZone:string}
- */
-function normalizeGoogleDateTime(googleDateTime) {
-	if (!googleDateTime) {
-		throw new Error(
-			"Failed to format Google's DateTime: No value was provided.",
-		);
-	}
-
-	// 全日イベント: date のみ
-	if (googleDateTime.date && !googleDateTime.dateTime) {
-		// googleカレンダーのデフォルトタイムゾーンを取得する
-		const defaultTimeZone = CalendarApp.getDefaultCalendar().getTimeZone();
-		return {
-			isAllDay: true,
-			dateTime: convertTimeZone(
-				googleDateTime.date,
-				defaultTimeZone || SYNC_TIMEZONE,
-				SYNC_TIMEZONE,
-			),
-			timeZone: SYNC_TIMEZONE,
-		};
-	}
-
-	// 時間指定イベント: dateTime が存在する場合
-	if (googleDateTime.dateTime) {
-		return {
-			isAllDay: false,
-			dateTime: convertTimeZone(
-				googleDateTime.dateTime,
-				googleDateTime.timeZone || SYNC_TIMEZONE,
-				SYNC_TIMEZONE,
-			),
-			timeZone: googleDateTime.timeZone || SYNC_TIMEZONE,
-		};
-	}
-
-	throw new Error(
-		`Failed to format Google's DateTime: Unknown format was provided. Value: ${JSON.stringify(googleDateTime)}`,
-	);
 }
 
 /**
@@ -398,19 +559,6 @@ function convertUtcToLocalDateTime_(utcDateTime, timeZone) {
 }
 
 /**
- * [点検済み] Googleカレンダーの空き状況（transparency）をOutlookのshowAsにマッピングする。
- * @param {string} transparency Googleのtransparency値（'transparent' または 'opaque'）
- * @returns {string} OutlookのshowAs値（'free' または 'busy'）
- */
-function mapTransparencyToShowAs(transparency) {
-	// opaqueに指定されていればbusy、それ以外はfreeとして扱う
-	if (transparency.toLowerCase() === 'opaque') {
-		return 'busy';
-	}
-	return 'free';
-}
-
-/**
  * [未点検] OutlookのshowAsをGoogleのtransparencyにマッピングする。
  * @param {string} showAs OutlookのshowAs値（'free' または 'busy'）
  * @returns {string} Googleのtransparency値（'transparent' または 'opaque'）
@@ -421,27 +569,6 @@ function mapShowAsToTransparency(showAs) {
 	const s = String(showAs).toLowerCase();
 	if (s === 'free') return 'transparent';
 	return 'opaque';
-}
-
-/**
- * [点検済み] Googleカレンダーの可視性（visibility）をOutlookのsensitivityにマッピングする。
- * @param {string} visibility Googleのvisibility値
- * @returns {string} Outlookのsensitivity値
- */
-function mapVisibilityToSensitivity(visibility) {
-	if (visibility.toLocaleLowerCase() === 'public') {
-		return 'public';
-	} else if (visibility.toLocaleLowerCase() === 'default') {
-		// Googleカレンダーのデフォルトの公開設定を取得し、それに応じてsensitivityを返す
-		const defaultVisibility = CalendarApp.getDefaultCalendar().getVisibility();
-		if (defaultVisibility === CalendarApp.Visibility.PUBLIC) {
-			return 'public';
-		} else {
-			return 'private';
-		}
-	} else {
-		return 'private';
-	}
 }
 
 /**

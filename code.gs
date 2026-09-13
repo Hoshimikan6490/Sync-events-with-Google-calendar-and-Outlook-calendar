@@ -8,9 +8,12 @@ const O365_AUTH_BASE = 'https://login.microsoftonline.com';
  * @param void
  * @returns void
  */
-function syncCalendars() {
+async function syncCalendars() {
 	const windowRange = getSyncWindow();
-	const googleEvents = getGoogleEvents(windowRange.start, windowRange.end);
+	const googleEvents = await getGoogleEvents(
+		windowRange.start,
+		windowRange.end,
+	);
 	const outlookEvents = fetchOutlookEvents(windowRange.start, windowRange.end);
 
 	const googleMaps = buildGoogleMaps(googleEvents);
