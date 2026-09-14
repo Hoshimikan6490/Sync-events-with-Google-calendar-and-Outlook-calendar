@@ -16,14 +16,17 @@ async function getOutlookEvents(startDate, endDate) {
 		'$orderby=start/dateTime',
 	].join('&');
 
-	const response = fetchOutlookGraph_(`${O365_GRAPH_BASE}${path}?${query}`, {
-		method: 'get',
-		headers: {
-			Authorization: `Bearer ${getAccessToken()}`,
-			Accept: 'application/json',
+	const response = await fetchOutlookGraph_(
+		`${O365_GRAPH_BASE}${path}?${query}`,
+		{
+			method: 'get',
+			headers: {
+				Authorization: `Bearer ${getAccessToken()}`,
+				Accept: 'application/json',
+			},
+			muteHttpExceptions: true,
 		},
-		muteHttpExceptions: true,
-	});
+	);
 
 	const payload = JSON.parse(response.getContentText() || '{}');
 	const events = payload.value || [];

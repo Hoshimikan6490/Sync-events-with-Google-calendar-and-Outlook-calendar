@@ -1,6 +1,5 @@
 // ===== Outlook OAuth2 設定 =====
 const OUTLOOK_AUTH_BASE_URL = 'https://login.microsoftonline.com';
-const OUTLOOK_GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
 const OUTLOOK_GRAPH_SCOPE =
 	'offline_access https://graph.microsoft.com/Calendars.ReadWrite';
 
@@ -90,7 +89,7 @@ function getOutlookAuthAuthorizeUrl() {
  * @param void
  * @returns void
  */
-function setup() {
+function _setup() {
 	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	if (!clientId) {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
@@ -130,7 +129,7 @@ function setup() {
  * @param void
  * @returns void
  */
-function authCallback() {
+function _authCallback() {
 	const codeVerifier = getScriptPropertyValue(
 		OUTLOOK_PROPERTY_KEYS.codeVerifier,
 	);
@@ -230,7 +229,7 @@ function generateCodeChallenge(codeVerifier) {
  * @param void
  * @returns {string} 更新後の access_token
  */
-function refreshAccessToken() {
+function _refreshAccessToken() {
 	const url = getOutlookAuthTokenUrl();
 
 	const refreshToken = getScriptPropertyValue(

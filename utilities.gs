@@ -5,7 +5,7 @@ const LOOKBACK_MONTHS = 1;
  * @param void
  * @returns {{start:Date,end:Date}} 同期ウィンドウの開始日時と終了日時
  */
-function getSyncWindow() {
+function _getSyncWindow() {
 	const start = new Date();
 	const end = new Date(start);
 	end.setMonth(end.getMonth() + LOOKBACK_MONTHS);
@@ -22,7 +22,7 @@ function getSyncWindow() {
  * @param {string} toTimeZone 変換先のタイムゾーン
  * @returns {string} 変換後の日時（YYYY-MM-DDThh:mm:ss）
  */
-function convertTimeZone(dateTimeAndTimeZone, toTimeZone) {
+function _convertTimeZone(dateTimeAndTimeZone, toTimeZone) {
 	let dateTimeWithOffset =
 		dateTimeAndTimeZone.dateTime || dateTimeAndTimeZone.date;
 	const fromTimeZone =

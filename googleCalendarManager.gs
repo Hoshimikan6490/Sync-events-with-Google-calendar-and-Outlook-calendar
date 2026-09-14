@@ -5,7 +5,7 @@
  * @param {Date} endDate 取得終了日時
  * @returns {Array<Object>} 正規化されたイベント配列（occurrence 単位）
  */
-function getGoogleEvents(startDate, endDate) {
+function _getGoogleEvents(startDate, endDate) {
 	// カレンダーを取得
 	const calendarId = CalendarApp.getDefaultCalendar().getId();
 
