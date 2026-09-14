@@ -54,7 +54,7 @@ function base64UrlEncode(input) {
 	if (typeof input === 'string') {
 		input = Utilities.newBlob(input).getBytes();
 	}
-	let base64 = Utilities.base64Encode(input);
+	const base64 = Utilities.base64Encode(input);
 	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
 

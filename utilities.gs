@@ -1,3 +1,5 @@
+const LOOKBACK_MONTHS = 1;
+
 /**
  * [点検済み] 同期対象の日時ウィンドウ（開始と終了）を生成する。
  * @param void

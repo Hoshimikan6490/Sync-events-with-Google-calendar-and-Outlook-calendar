@@ -1,14 +1,11 @@
 const SYNC_TIMEZONE = 'Asia/Tokyo';
-const LOOKBACK_MONTHS = 1;
-const O365_GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
-const O365_AUTH_BASE = 'https://login.microsoftonline.com';
 
 /**
  * [点検中] カレンダー間の同期処理をエントリポイントとして実行する。
  * @param void
  * @returns void
  */
-async function syncCalendars() {
+async function _syncCalendars() {
 	const windowRange = getSyncWindow();
 	const googleEvents = await getGoogleEvents(
 		windowRange.start,

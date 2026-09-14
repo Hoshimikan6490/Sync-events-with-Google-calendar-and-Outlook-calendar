@@ -1,3 +1,5 @@
+const O365_GRAPH_BASE = 'https://graph.microsoft.com/v1.0';
+
 /**
  * [点検中] Outlook イベントを取得する。
  * @param {Date} startDate 取得開始日時
