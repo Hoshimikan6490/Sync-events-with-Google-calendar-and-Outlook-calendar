@@ -35,10 +35,7 @@ function convertTimeZone(dateTimeAndTimeZone, toTimeZone) {
 		 * GASのDateは文字列を実行環境のタイムゾーンで
 		 * 解釈する可能性があるため、明示的にオフセットを付ける。
 		 */
-		const offset = getTimeZoneOffset(
-			dateTimeWithOffset,
-			fromTimeZone,
-		);
+		const offset = getTimeZoneOffset(dateTimeWithOffset, fromTimeZone);
 
 		dateTimeWithOffset = `${dateTimeWithOffset}${offset}`;
 	}

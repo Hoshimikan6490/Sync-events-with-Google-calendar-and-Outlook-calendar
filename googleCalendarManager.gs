@@ -38,13 +38,13 @@ function getGoogleEvents(startDate, endDate) {
  */
 function googleEventOverlapsWindow(event, startDate, endDate) {
 	const start = event.start;
-  const end = event.end;
+	const end = event.end;
 	if (!start || !end) {
 		return false;
 	}
 
 	const eventStart = new Date(start).getTime();
-  const eventEnd = new Date(end).getTime();
+	const eventEnd = new Date(end).getTime();
 	return eventEnd >= startDate.getTime() && eventStart <= endDate.getTime();
 }
 
