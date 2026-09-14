@@ -8,14 +8,14 @@ export default [
 	// Ignore
 	// ============================================================
 	{
-		ignores: ['node_modules/**', '.env', '*.min.js', 'dist/**', 'build/**'],
+		ignores: ['node_modules/**', '.env', '*.min.js'],
 	},
 
 	// ============================================================
 	// JavaScript
 	// ============================================================
 	{
-		files: ['**/*.js'],
+		files: ['**/*.js', '**/*.mjs', '**/*.gs'],
 		...js.configs.recommended,
 		languageOptions: {
 			ecmaVersion: 2022,
@@ -23,6 +23,7 @@ export default [
 
 			globals: {
 				...globals.node,
+				...globals.googleappsscript,
 			},
 		},
 
@@ -30,61 +31,7 @@ export default [
 			// 基本的なコード品質
 			'no-unused-vars': [
 				'error',
-				{
-					argsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-				},
-			],
-			'no-console': 'off',
-			'no-debugger': 'error',
-			'no-alert': 'error',
-
-			// 非同期処理
-			'no-async-promise-executor': 'error',
-			'prefer-promise-reject-errors': 'error',
-			'require-await': 'error',
-
-			// ベストプラクティス
-			eqeqeq: ['error', 'always'],
-			'no-var': 'error',
-			'prefer-const': 'error',
-			'prefer-arrow-callback': 'error',
-
-			// セキュリティ
-			'no-eval': 'error',
-			'no-implied-eval': 'error',
-			'no-new-func': 'error',
-		},
-	},
-
-	// ============================================================
-	// Google Apps Script
-	// ============================================================
-	{
-		files: ['.scripts/temp/*.js'],
-
-		...js.configs.recommended,
-
-		languageOptions: {
-			ecmaVersion: 2022,
-			sourceType: 'script',
-
-			globals: {
-				...globals.googleappsscript,
-			},
-		},
-
-		rules: {
-			// 別.gsファイルの関数・変数も同一スコープとして
-			// 結合されるため、通常のno-undefを使用できる
-			'no-undef': 'error',
-
-			'no-unused-vars': [
-				'error',
-				{
-					argsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-				},
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
 			],
 			'no-console': 'off',
 			'no-debugger': 'error',
