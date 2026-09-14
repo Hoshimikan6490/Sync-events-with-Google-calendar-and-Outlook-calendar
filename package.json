@@ -17,10 +17,11 @@
 	},
 	"scripts": {
 		"lint": "eslint .",
+		"lint:gas": "node scripts/lint-gas.js",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
-		"format:lint": "prettier --write . && eslint . --fix"
+		"format:lint": "prettier --check . && npm run lint:fix && npm run lint:gas"
 	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",

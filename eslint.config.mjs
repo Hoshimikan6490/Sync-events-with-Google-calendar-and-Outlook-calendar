@@ -61,7 +61,7 @@ export default [
 	// Google Apps Script
 	// ============================================================
 	{
-		files: ['**/*.gs'],
+		files: ['.scripts/temp/*.js'],
 
 		...js.configs.recommended,
 
@@ -75,7 +75,10 @@ export default [
 		},
 
 		rules: {
-			// 基本的なコード品質
+			// 別.gsファイルの関数・変数も同一スコープとして
+			// 結合されるため、通常のno-undefを使用できる
+			'no-undef': 'error',
+
 			'no-unused-vars': [
 				'error',
 				{
