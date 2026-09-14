@@ -1,6 +1,6 @@
 # Google ↔ Outlook カレンダー同期
 
-Google Apps Script で Google カレンダーと Outlook カレンダーを双方向同期するプロジェクトです。仕様の詳細は [仕様書.md](仕様書.md) を参照してください。
+Google Apps Script で Google カレンダーと Outlook カレンダーを双方向同期するプロジェクトです。仕様の詳細は [仕様書.md](./docs/動作仕様書.md) を参照してください。
 
 ## ファイル
 
