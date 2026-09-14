@@ -76,7 +76,7 @@ Graph API から取得したイベントを内部表現に変換します。
 
 ### イベント取得
 
-`fetchOutlookEvents(startDate, endDate)`
+`getOutlookEvents(startDate, endDate)`
 
 Outlook 側のイベントは Microsoft Graph API の `calendarView` で取得します。
 

@@ -14,7 +14,10 @@ async function syncCalendars() {
 		windowRange.start,
 		windowRange.end,
 	);
-	const outlookEvents = fetchOutlookEvents(windowRange.start, windowRange.end);
+	const outlookEvents = await getOutlookEvents(
+		windowRange.start,
+		windowRange.end,
+	);
 
 	const googleMaps = buildGoogleMaps(googleEvents);
 	const outlookMaps = buildOutlookMaps(outlookEvents);
