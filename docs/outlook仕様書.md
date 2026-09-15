@@ -28,7 +28,7 @@
 
 PKCE 用の `code_verifier` を生成し、認可 URL をログへ出力します。`code_challenge` と `code_challenge_method=S256` を使います。
 
-- `authCallback()`
+- `_authenticate()`
 
 保存済みの認可コードをトークンに交換し、`ACCESS_TOKEN` と `REFRESH_TOKEN` を保存します。
 
@@ -167,7 +167,7 @@ Outlook 側の description に Google 側との関連付け情報を追記しま
 
 PKCE 用の `code_verifier` を生成し、認可 URL をログへ出力します。
 
-### `authCallback()`
+### `_authenticate()`
 
 保存済みの認可コードをトークンに交換し、`ACCESS_TOKEN` と `REFRESH_TOKEN` を保存します。
 

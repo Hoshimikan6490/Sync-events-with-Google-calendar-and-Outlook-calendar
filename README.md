@@ -24,7 +24,7 @@ Google Apps Script で Google カレンダーと Outlook カレンダーを双�
 
 1. `setup()` を実行して認証 URL を生成します。
 2. 表示された URL を開いて Microsoft アカウントで認証します。
-3. 返ってきた `code` を使って `authCallback()` を実行し、トークンを Script Properties に保存します。
+3. 返ってきた `code` を使って `_authenticate()` を実行し、トークンを Script Properties に保存します。
 4. 以後は `refresh_token` による自動更新で運用します。
 
 ## 同期実行
@@ -69,5 +69,5 @@ Google Apps Script で Google カレンダーと Outlook カレンダーを双�
 3. `outlookEventsManager.gs` を開き、`OUTLOOK_CONFIG.calendarId`、`OUTLOOK_CONFIG.clientId` を自分の値に置き換える。他はそのままでよい。
 4. まず `setup()` を実行して、ログに出力された認可 URL を開く。
 5. Microsoft アカウントでサインインし、表示されたリダイレクト先 URL の `code=` 以降の値を `outlookEventsManager.gs` の `OUTLOOK_CONFIG.authCode` に貼り付ける。恐らくフルスクリーンでも4行ぐらいある長文文字列のはず。
-6. `authCallback()` を実行してリフレッシュトークンを含めた認証情報を「スクリプトトークン」に保存する。
+6. `_authenticate()` を実行してリフレッシュトークンを含めた認証情報を「スクリプトトークン」に保存する。
 7. 以後は `syncMonthlyCalendars()` を実行すれば、Outlook -> Google -> Outlook の順で 1 か月分の同期ができる。

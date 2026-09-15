@@ -67,3 +67,35 @@ function getTimeZoneOffset(dateTime, timeZone) {
 
 	return `${sign}${value.slice(0, 2)}:${value.slice(2, 4)}`;
 }
+
+/**
+ * [点検済み] スクリプトプロパティからキーの値を取得するヘルパー。
+ * @param {string} key プロパティキー
+ * @returns {string|null} プロパティ値または null
+ */
+function getScriptPropertyValue(key) {
+	return PropertiesService.getScriptProperties().getProperty(key);
+}
+
+/**
+ * [点検済み] スクリプトプロパティにキーと値を保存するヘルパー。
+ * @param {string} key プロパティキー
+ * @param {string} value 保存する値
+ * @returns void
+ */
+function setScriptPropertyValue(key, value) {
+	PropertiesService.getScriptProperties().setProperty(key, value);
+}
+
+/**
+ * [点検済み] Base64 URL エンコードを行う（RFC4648 section5）。
+ * @param {string|Byte[]} input 入力バイト列または文字列
+ * @returns {string} base64url 形式の文字列
+ */
+function base64UrlEncode(input) {
+	if (typeof input === 'string') {
+		input = Utilities.newBlob(input).getBytes();
+	}
+	const base64 = Utilities.base64Encode(input);
+	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}

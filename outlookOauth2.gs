@@ -19,73 +19,9 @@ const OUTLOOK_PROPERTY_KEYS = {
 	codeVerifier: 'OUTLOOK_CODE_VERIFIER',
 };
 
-// ===== ヘルパー関数 =====
-/**
- * スクリプトプロパティからキーの値を取得するヘルパー。
- * @param {string} key プロパティキー
- * @returns {string|null} プロパティ値または null
- */
-function getScriptPropertyValue(key) {
-	return PropertiesService.getScriptProperties().getProperty(key);
-}
-
-/**
- * スクリプトプロパティにキーと値を保存するヘルパー。
- * @param {string} key プロパティキー
- * @param {string} value 保存する値
- * @returns void
- */
-function setScriptPropertyValue(key, value) {
-	PropertiesService.getScriptProperties().setProperty(key, value);
-}
-
-/**
- * Base64 URL encode（RFC 4648 のセクション 5）
- * @param {string|Byte[]} input
- * @returns {string}
- */
-/**
- * Base64 URL エンコードを行う（RFC4648 section5）。
- * @param {string|Byte[]} input 入力バイト列または文字列
- * @returns {string} base64url 形式の文字列
- */
-function base64UrlEncode(input) {
-	if (typeof input === 'string') {
-		input = Utilities.newBlob(input).getBytes();
-	}
-	const base64 = Utilities.base64Encode(input);
-	return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
 // ===== 認証フロー =====
 /**
- * Outlook のトークンエンドポイント URL を返す。
- * @param void
- * @returns {string} トークンエンドポイント URL
- */
-function getOutlookAuthTokenUrl() {
-	const tenantId =
-		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
-	return OUTLOOK_AUTH_BASE_URL + '/' + tenantId + '/oauth2/v2.0/token';
-}
-
-/**
- * Outlook の認可エンドポイント URL を返す。
- * @param void
- * @returns {string} 認可エンドポイント URL
- */
-function getOutlookAuthAuthorizeUrl() {
-	const tenantId =
-		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
-	return OUTLOOK_AUTH_BASE_URL + '/' + tenantId + '/oauth2/v2.0/authorize';
-}
-
-/**
- * OAuth 認可 URL を生成し、PKCE 用の code_verifier を保存する。
- * @returns {void}
- */
-/**
- * 認可用 URL を生成して PKCE の code_verifier を保存するセットアップ処理。
+ * [点検済み] 認可コードを取得するための URL を生成し、ログに出力する。
  * @param void
  * @returns void
  */
@@ -119,17 +55,48 @@ function _setup() {
 }
 
 /**
- * 認可コードをアクセストークンと交換し、ScriptProperties に保存する。
- * 手順: setup() で表示された URL を開き、code を取得して引数に渡す。
- * @param {string} code 認可コード
- * @returns {void}
+ * [点検済み] PKCE 用の code_verifier を生成する。
+ * @param void
+ * @returns {string} 生成された code_verifier
  */
+function generateCodeVerifier() {
+	const bytes =
+		Utilities.getUuid().replace(/-/g, '') +
+		Utilities.getUuid().replace(/-/g, '');
+	return bytes.slice(0, 64);
+}
+
 /**
- * 認可コードをトークンに交換して ScriptProperties に保存する。
+ * [点検済み] code_verifier から SHA-256 を用いて code_challenge を生成する。
+ * @param {string} codeVerifier PKCE の code_verifier
+ * @returns {string} base64url 形式の code_challenge
+ */
+function generateCodeChallenge(codeVerifier) {
+	const digest = Utilities.computeDigest(
+		Utilities.DigestAlgorithm.SHA_256,
+		codeVerifier,
+		Utilities.Charset.UTF_8,
+	);
+	return base64UrlEncode(digest);
+}
+
+/**
+ * [点検済み] Outlook の認可エンドポイント URL を返す。
+ * @param void
+ * @returns {string} 認可エンドポイント URL
+ */
+function getOutlookAuthAuthorizeUrl() {
+	const tenantId =
+		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
+	return `${OUTLOOK_AUTH_BASE_URL}/${tenantId}/oauth2/v2.0/authorize`;
+}
+
+/**
+ * [点検済み] 認可コードをトークンに交換して ScriptProperties に保存する。
  * @param void
  * @returns void
  */
-function _authCallback() {
+function _authenticate() {
 	const codeVerifier = getScriptPropertyValue(
 		OUTLOOK_PROPERTY_KEYS.codeVerifier,
 	);
@@ -145,19 +112,17 @@ function _authCallback() {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
 	}
 
-	const payload = {
-		client_id: clientId,
-		code: decodeURIComponent(
-			getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.authCode),
-		),
-		redirect_uri: OUTLOOK_CONFIG.redirectUri,
-		grant_type: 'authorization_code',
-		code_verifier: codeVerifier,
-	};
-
 	const options = {
 		method: 'post',
-		payload: payload,
+		payload: {
+			client_id: clientId,
+			code: decodeURIComponent(
+				getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.authCode),
+			),
+			redirect_uri: OUTLOOK_CONFIG.redirectUri,
+			grant_type: 'authorization_code',
+			code_verifier: codeVerifier,
+		},
 		muteHttpExceptions: true,
 	};
 
@@ -166,7 +131,7 @@ function _authCallback() {
 	const status = res.getResponseCode();
 
 	if (status >= 400) {
-		throw new Error('Token exchange failed (' + status + '): ' + body);
+		throw new Error(`Token exchange failed (${status}): ${body}`);
 	}
 
 	const data = JSON.parse(body);
@@ -182,54 +147,26 @@ function _authCallback() {
 	}
 
 	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
-	Logger.log('トークンを保存しました。');
+	Logger.log('アクセストークンを保存しました。');
 }
 
 /**
- * PKCE 用の code_verifier を生成する。
- * @returns {string} 64 文字の code_verifier
- */
-/**
- * PKCE 用の code_verifier を生成する。
+ * [点検済み] Outlook のトークンエンドポイント URL を返す。
  * @param void
- * @returns {string} 生成された code_verifier
+ * @returns {string} トークンエンドポイント URL
  */
-function generateCodeVerifier() {
-	const bytes =
-		Utilities.getUuid().replace(/-/g, '') +
-		Utilities.getUuid().replace(/-/g, '');
-	return bytes.slice(0, 64);
+function getOutlookAuthTokenUrl() {
+	const tenantId =
+		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
+	return `${OUTLOOK_AUTH_BASE_URL}/${tenantId}/oauth2/v2.0/token`;
 }
 
 /**
- * code_verifier から code_challenge を生成する。
- * @param {string} codeVerifier PKCE の code_verifier
- * @returns {string} base64url 形式の code_challenge
- */
-/**
- * code_verifier から SHA-256 を用いて code_challenge を生成する。
- * @param {string} codeVerifier PKCE の code_verifier
- * @returns {string} base64url 形式の code_challenge
- */
-function generateCodeChallenge(codeVerifier) {
-	const digest = Utilities.computeDigest(
-		Utilities.DigestAlgorithm.SHA_256,
-		codeVerifier,
-		Utilities.Charset.UTF_8,
-	);
-	return base64UrlEncode(digest);
-}
-
-/**
- * 保存済み refresh_token を使って access_token を更新する。
- * @returns {string} 更新後の access_token
- */
-/**
- * 保存済みの refresh_token を使いアクセス トークンを更新して返す。
+ * [点検済み] 保存済みの refresh_token を使いアクセス トークンを更新して返す。
  * @param void
  * @returns {string} 更新後の access_token
  */
-function _refreshAccessToken() {
+function refreshAccessToken() {
 	const url = getOutlookAuthTokenUrl();
 
 	const refreshToken = getScriptPropertyValue(
@@ -238,7 +175,7 @@ function _refreshAccessToken() {
 
 	if (!refreshToken) {
 		throw new Error(
-			'refresh_token がありません。先に authCallback() を実行してトークンを保存してください。',
+			'refresh_token がありません。先に _authenticate() を実行してトークンを保存してください。',
 		);
 	}
 
@@ -247,15 +184,13 @@ function _refreshAccessToken() {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
 	}
 
-	const payload = {
-		client_id: clientId,
-		refresh_token: refreshToken,
-		grant_type: 'refresh_token',
-	};
-
 	const options = {
 		method: 'post',
-		payload: payload,
+		payload: {
+			client_id: clientId,
+			refresh_token: refreshToken,
+			grant_type: 'refresh_token',
+		},
 		muteHttpExceptions: true,
 	};
 
@@ -264,11 +199,12 @@ function _refreshAccessToken() {
 	const status = res.getResponseCode();
 
 	if (status >= 400) {
-		throw new Error('Refresh token failed (' + status + '): ' + body);
+		throw new Error(`Refresh token failed (${status}): ${body}`);
 	}
 
 	const data = JSON.parse(body);
 
+	Logger.log('アクセストークンを更新しました。');
 	// トークン更新保存
 	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 
@@ -280,4 +216,27 @@ function _refreshAccessToken() {
 	}
 
 	return data.access_token;
+}
+
+/**
+ * [点検済み] スクリプトプロパティからアクセストークンを取得し、無ければリフレッシュを試みる。
+ * @param void
+ * @returns {string} 利用可能なアクセストークン
+ */
+function _getAccessToken() {
+	const accessToken = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken);
+	if (accessToken) {
+		return accessToken;
+	}
+
+	const refreshToken = getScriptPropertyValue(
+		OUTLOOK_PROPERTY_KEYS.refreshToken,
+	);
+	if (!refreshToken) {
+		throw new Error(
+			'ACCESS_TOKEN または REFRESH_TOKEN が設定されていません。outlookOauth2.gs の setup() と _authenticate() を実行してください。',
+		);
+	}
+
+	return refreshAccessToken();
 }
