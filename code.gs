@@ -548,12 +548,12 @@ function outputSummaryLog(stats) {
 }
 
 /**
- * [未点検] `syncCalendars` を30分毎に実行するトリガーをセットする。
+ * [点検済み] `syncCalendars` を30分毎に実行するトリガーをセットする。
  * @param void
  * @returns void
  */
-function installThirtyMinuteTrigger() {
-	const handlerFunction = 'syncCalendars';
+function _installThirtyMinuteTrigger() {
+	const handlerFunction = '_syncCalendars';
 	const triggers = ScriptApp.getProjectTriggers();
 	for (const trigger of triggers) {
 		if (trigger.getHandlerFunction() === handlerFunction) {
