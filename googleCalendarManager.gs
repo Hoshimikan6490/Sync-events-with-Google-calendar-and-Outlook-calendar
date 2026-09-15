@@ -141,7 +141,7 @@ function normalizeGoogleDateTime(googleDateTime) {
 	if (googleDateTime.date && !googleDateTime.dateTime) {
 		return {
 			isAllDay: true,
-			dateTime: convertTimeZone(googleDateTime, SYNC_TIMEZONE),
+			dateTime: _convertTimeZone(googleDateTime, SYNC_TIMEZONE),
 			timeZone: SYNC_TIMEZONE,
 		};
 	}
@@ -150,7 +150,7 @@ function normalizeGoogleDateTime(googleDateTime) {
 	if (googleDateTime.dateTime) {
 		return {
 			isAllDay: false,
-			dateTime: convertTimeZone(googleDateTime, SYNC_TIMEZONE),
+			dateTime: _convertTimeZone(googleDateTime, SYNC_TIMEZONE),
 			timeZone: googleDateTime.timeZone ?? SYNC_TIMEZONE,
 		};
 	}
@@ -230,7 +230,7 @@ function createGoogleUpdatedOrDeletedException(event, type, { diff } = {}) {
 	}
 
 	return {
-		originalStart: convertTimeZone(event.originalStartTime, SYNC_TIMEZONE),
+		originalStart: _convertTimeZone(event.originalStartTime, SYNC_TIMEZONE),
 		originalTimeZone: event.start.timeZone ?? SYNC_TIMEZONE,
 		status: type,
 		id: event.id,

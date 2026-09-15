@@ -6,7 +6,7 @@ const SYNC_TIMEZONE = 'Asia/Tokyo';
  * @returns void
  */
 async function _syncCalendars() {
-	const windowRange = getSyncWindow();
+	const windowRange = _getSyncWindow();
 	const googleEvents = await getGoogleEvents(
 		windowRange.start,
 		windowRange.end,
