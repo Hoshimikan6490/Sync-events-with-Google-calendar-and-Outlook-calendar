@@ -473,31 +473,6 @@ function normalizeDescriptionText_(description) {
 }
 
 /**
- * [未点検] Google イベントに対応する Outlook 側のターゲットイベントを解決する。
- * @param {Object} googleEvent Google 側のイベントオブジェクト
- * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
- * @param {Object} outlookMaps Outlook 側の参照マップ
- * @returns {Object|null} 対応する Outlook イベント、無ければ null
- */
-function resolveOutlookTargetEvent_(googleEvent, ids, outlookMaps) {
-	if (
-		ids.outlookSyncKey &&
-		outlookMaps.byOutlookSyncKey.has(ids.outlookSyncKey)
-	) {
-		return outlookMaps.byOutlookSyncKey.get(ids.outlookSyncKey);
-	}
-
-	if (outlookMaps.byGoogleSyncKey.has(ids.googleSyncKey)) {
-		const candidates = outlookMaps.byGoogleSyncKey.get(ids.googleSyncKey);
-		if (Array.isArray(candidates) && candidates.length > 0) {
-			return candidates[0];
-		}
-	}
-
-	return null;
-}
-
-/**
  * [未点検] Outlook イベントに対応する Google 側のターゲットイベントを解決する。
  * @param {Object} outlookEvent Outlook 側のイベントオブジェクト
  * @param {{outlookSyncKey:string,googleSyncKey:string}} ids 抽出済み ID 情報
@@ -839,28 +814,6 @@ function normalizeOutlookCalendarDateTime_(value, outlookEvent) {
 }
 
 /**
- * [未点検] Outlook イベントのマージを行い次のペイロードを作る。
- * @param {Object} currentEvent 現在の Outlook イベントオブジェクト
- * @param {Object} nextPayload 更新用のペイロード
- * @returns {Object} マージ後のイベントオブジェクト
- */
-function mergeOutlookEventPayload_(currentEvent, nextPayload) {
-	return Object.assign({}, currentEvent, nextPayload, {
-		body: nextPayload.body,
-	});
-}
-
-/**
- * [未点検] Google イベントのマージを行い次のペイロードを作る。
- * @param {Object} currentEvent 現在の Google イベントオブジェクト
- * @param {Object} nextPayload 更新用のペイロード
- * @returns {Object} マージ後のイベントオブジェクト
- */
-function mergeGoogleEventPayload_(currentEvent, nextPayload) {
-	return Object.assign({}, currentEvent, nextPayload);
-}
-
-/**
  * [未点検] Outlook イベントが更新対象かどうかを判定する。
  * @param {Object} currentEvent 現在の Outlook イベント
  * @param {Object} nextPayload 比較対象の次ペイロード
@@ -1065,46 +1018,4 @@ function toIsoStringInTimeZone_(value) {
 
 	// 解析できない場合のみ元の文字列を返す
 	return text;
-}
-
-/**
- * [未点検] Google イベントの説明に Outlook の ID を埋め込みて更新する。
- * @param {Object} googleEvent Google イベントオブジェクト
- * @param {string} outlookSyncKey Outlook のイベント同期キー
- * @returns void
- */
-function updateGoogleEventWithOutlookSyncKey_(googleEvent, outlookSyncKey) {
-	const description = buildGoogleDescription(
-		{ description: googleEvent.description },
-		outlookSyncKey,
-	);
-	updateGoogleEvent(
-		googleEvent.id,
-		Object.assign({}, googleEvent, {
-			description,
-		}),
-	);
-}
-
-/**
- * [未点検] Outlook イベントの説明に Google の ID を埋め込みて更新する。
- * @param {Object} outlookEvent Outlook イベントオブジェクト
- * @param {string} googleSyncKey Google のイベント同期キー
- * @returns void
- */
-function updateOutlookEventWithGoogleSyncKey_(outlookEvent, googleSyncKey) {
-	const bodyContent = buildOutlookDescription(
-		{ description: outlookEvent.description },
-		googleSyncKey,
-		'',
-	);
-	updateOutlookEvent(
-		outlookEvent.id,
-		Object.assign({}, outlookEvent, {
-			body: {
-				contentType: 'text',
-				content: bodyContent,
-			},
-		}),
-	);
 }

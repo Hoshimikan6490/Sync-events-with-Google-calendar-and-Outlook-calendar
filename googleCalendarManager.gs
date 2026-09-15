@@ -324,16 +324,6 @@ function deleteGoogleEvent(eventId) {
 }
 
 /**
- * [未点検] 説明文から埋め込まれた googleSyncKey を抽出する。
- * @param {string} description イベント説明文
- * @returns {string} 抽出された googleSyncKey（存在しない場合は空文字）
- */
-function extractGoogleEventId(description) {
-	const ids = parseIds(description);
-	return ids.googleSyncKey;
-}
-
-/**
  * [未点検] Google イベントの説明文を組み立てる（outlookSyncKey を含める）。
  * @param {Object} event 元イベントオブジェクト（description を使用）
  * @param {string} outlookSyncKey Outlook のイベント同期キー
@@ -518,26 +508,6 @@ function formatOffset_(offsetMinutes) {
 }
 
 /**
- * [未点検] RFC3339 with offset形式（"2026-05-08T11:40:00+09:00"）をUTC形式（"2026-05-08T02:40:00Z"）に変換する。
- * @param {string} rfc3339DateTime RFC3339形式の日時文字列
- * @returns {string} UTC形式の日時文字列
- */
-function convertRfc3339ToUtc(rfc3339DateTime) {
-	if (!rfc3339DateTime) {
-		return '';
-	}
-
-	// Date として解析（JavaScriptはRFC3339 with offsetを自動的にパース）
-	const date = new Date(rfc3339DateTime);
-	if (isNaN(date.getTime())) {
-		return '';
-	}
-
-	// UTC形式でフォーマット
-	return Utilities.formatDate(date, 'UTC', "yyyy-MM-dd'T'HH:mm:ss'Z'");
-}
-
-/**
  * [未点検] UTC形式の日時（"2026-05-08T02:40:00Z"）をローカル日時（オフセットなし）に変換する。
  * @param {string} utcDateTime UTC形式の日時文字列
  * @param {string} timeZone タイムゾーン
@@ -601,99 +571,4 @@ function extractRecurrenceFromGoogleEvent(googleEvent) {
 	}
 
 	return null;
-}
-
-/**
- * [未点検] Outlook 形式の recurrence オブジェクトから Google 形式の recurrence 配列を構築する。
- * @param {Object} outlookRecurrence Outlook Graph API の recurrence オブジェクト
- * @returns {Array<string>|null} Google 形式の recurrence 配列またはnull
- */
-function buildGoogleRecurrenceFromOutlook(outlookRecurrence) {
-	if (!outlookRecurrence || !outlookRecurrence.pattern) {
-		return null;
-	}
-
-	const recurrenceRules = [];
-	const pattern = outlookRecurrence.pattern;
-	const range = outlookRecurrence.range || {};
-
-	// pattern.type から FREQ を取得
-	const freq = mapOutlookTypeToFreq_(pattern.type);
-	if (!freq) {
-		return null;
-	}
-
-	// RRULEを構築
-	let rrule = `FREQ=${freq}`;
-
-	// interval を追加
-	if (pattern.interval && pattern.interval > 1) {
-		rrule += `;INTERVAL=${pattern.interval}`;
-	}
-
-	// daysOfWeek を追加（BYDAY）
-	if (pattern.daysOfWeek && Array.isArray(pattern.daysOfWeek)) {
-		const bydays = pattern.daysOfWeek
-			.map((day) => mapOutlookDayToRruleFormat_(day))
-			.filter(Boolean)
-			.join(',');
-		if (bydays) {
-			rrule += `;BYDAY=${bydays}`;
-		}
-	}
-
-	// COUNT または UNTIL を追加
-	if (range.type === 'numbered' && range.numberOfOccurrences) {
-		rrule += `;COUNT=${range.numberOfOccurrences}`;
-	} else if (range.type === 'endDate' && range.endDate) {
-		// UNTIL は YYYYMMDD形式
-		const endDateFormatted = range.endDate.replace(/-/g, '');
-		rrule += `;UNTIL=${endDateFormatted}`;
-	}
-
-	recurrenceRules.push(`RRULE:${rrule}`);
-
-	return recurrenceRules;
-}
-
-/**
- * [未点検] Outlook の recurrenceType を RRULE の FREQ にマッピングする。
- * @param {string} outlookType Outlook のrecurrenceType（daily, weekly等）
- * @returns {string|null} RRULEのFREQ値
- */
-function mapOutlookTypeToFreq_(outlookType) {
-	const type = String(outlookType || '').toLowerCase();
-	switch (type) {
-		case 'daily':
-			return 'DAILY';
-		case 'weekly':
-			return 'WEEKLY';
-		case 'absolutemonthly':
-		case 'relativeMonthly':
-			return 'MONTHLY';
-		case 'absoluteyearly':
-		case 'relativeYearly':
-			return 'YEARLY';
-		default:
-			return null;
-	}
-}
-
-/**
- * [未点検] Outlook の dayOfWeek 値を RRULE の BYDAY 形式にマッピングする。
- * @param {string} outlookDay Outlook の dayOfWeek 値（sunday, monday等）
- * @returns {string|null} RRULE形式の曜日コード（SU, MO等）
- */
-function mapOutlookDayToRruleFormat_(outlookDay) {
-	const day = String(outlookDay || '').toLowerCase();
-	const mapping = {
-		sunday: 'SU',
-		monday: 'MO',
-		tuesday: 'TU',
-		wednesday: 'WE',
-		thursday: 'TH',
-		friday: 'FR',
-		saturday: 'SA',
-	};
-	return mapping[day] || null;
 }
