@@ -73,7 +73,7 @@ function getTimeZoneOffset(dateTime, timeZone) {
  * @param {string} key プロパティキー
  * @returns {string|null} プロパティ値または null
  */
-function getScriptPropertyValue(key) {
+function _getScriptPropertyValue(key) {
 	return PropertiesService.getScriptProperties().getProperty(key);
 }
 
@@ -83,7 +83,7 @@ function getScriptPropertyValue(key) {
  * @param {string} value 保存する値
  * @returns void
  */
-function setScriptPropertyValue(key, value) {
+function _setScriptPropertyValue(key, value) {
 	PropertiesService.getScriptProperties().setProperty(key, value);
 }
 
@@ -92,7 +92,7 @@ function setScriptPropertyValue(key, value) {
  * @param {string|Byte[]} input 入力バイト列または文字列
  * @returns {string} base64url 形式の文字列
  */
-function base64UrlEncode(input) {
+function _base64UrlEncode(input) {
 	if (typeof input === 'string') {
 		input = Utilities.newBlob(input).getBytes();
 	}

@@ -26,7 +26,7 @@ const OUTLOOK_PROPERTY_KEYS = {
  * @returns void
  */
 function _setup() {
-	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
+	const clientId = _getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	if (!clientId) {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
 	}
@@ -34,7 +34,7 @@ function _setup() {
 	const codeVerifier = generateCodeVerifier();
 	const codeChallenge = generateCodeChallenge(codeVerifier);
 
-	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.codeVerifier, codeVerifier);
+	_setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.codeVerifier, codeVerifier);
 
 	const url =
 		getOutlookAuthAuthorizeUrl() +
@@ -77,7 +77,7 @@ function generateCodeChallenge(codeVerifier) {
 		codeVerifier,
 		Utilities.Charset.UTF_8,
 	);
-	return base64UrlEncode(digest);
+	return _base64UrlEncode(digest);
 }
 
 /**
@@ -87,7 +87,7 @@ function generateCodeChallenge(codeVerifier) {
  */
 function getOutlookAuthAuthorizeUrl() {
 	const tenantId =
-		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
+		_getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
 	return `${OUTLOOK_AUTH_BASE_URL}/${tenantId}/oauth2/v2.0/authorize`;
 }
 
@@ -97,7 +97,7 @@ function getOutlookAuthAuthorizeUrl() {
  * @returns void
  */
 function _authenticate() {
-	const codeVerifier = getScriptPropertyValue(
+	const codeVerifier = _getScriptPropertyValue(
 		OUTLOOK_PROPERTY_KEYS.codeVerifier,
 	);
 
@@ -107,7 +107,7 @@ function _authenticate() {
 		);
 	}
 
-	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
+	const clientId = _getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	if (!clientId) {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
 	}
@@ -117,7 +117,7 @@ function _authenticate() {
 		payload: {
 			client_id: clientId,
 			code: decodeURIComponent(
-				getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.authCode),
+				_getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.authCode),
 			),
 			redirect_uri: OUTLOOK_CONFIG.redirectUri,
 			grant_type: 'authorization_code',
@@ -140,13 +140,13 @@ function _authenticate() {
 
 	// refresh_token は毎回返るとは限らないため、存在時のみ更新する。
 	if (data.refresh_token) {
-		setScriptPropertyValue(
+		_setScriptPropertyValue(
 			OUTLOOK_PROPERTY_KEYS.refreshToken,
 			data.refresh_token,
 		);
 	}
 
-	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
+	_setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 	Logger.log('アクセストークンを保存しました。');
 }
 
@@ -157,7 +157,7 @@ function _authenticate() {
  */
 function getOutlookAuthTokenUrl() {
 	const tenantId =
-		getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
+		_getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.tenantId) || 'consumers';
 	return `${OUTLOOK_AUTH_BASE_URL}/${tenantId}/oauth2/v2.0/token`;
 }
 
@@ -169,7 +169,7 @@ function getOutlookAuthTokenUrl() {
 function refreshAccessToken() {
 	const url = getOutlookAuthTokenUrl();
 
-	const refreshToken = getScriptPropertyValue(
+	const refreshToken = _getScriptPropertyValue(
 		OUTLOOK_PROPERTY_KEYS.refreshToken,
 	);
 
@@ -179,7 +179,7 @@ function refreshAccessToken() {
 		);
 	}
 
-	const clientId = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
+	const clientId = _getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.clientId);
 	if (!clientId) {
 		throw new Error('Script Properties に CLIENT_ID が設定されていません。');
 	}
@@ -206,10 +206,10 @@ function refreshAccessToken() {
 
 	Logger.log('アクセストークンを更新しました。');
 	// トークン更新保存
-	setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
+	_setScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken, data.access_token);
 
 	if (data.refresh_token) {
-		setScriptPropertyValue(
+		_setScriptPropertyValue(
 			OUTLOOK_PROPERTY_KEYS.refreshToken,
 			data.refresh_token,
 		);
@@ -224,12 +224,14 @@ function refreshAccessToken() {
  * @returns {string} 利用可能なアクセストークン
  */
 function _getAccessToken() {
-	const accessToken = getScriptPropertyValue(OUTLOOK_PROPERTY_KEYS.accessToken);
+	const accessToken = _getScriptPropertyValue(
+		OUTLOOK_PROPERTY_KEYS.accessToken,
+	);
 	if (accessToken) {
 		return accessToken;
 	}
 
-	const refreshToken = getScriptPropertyValue(
+	const refreshToken = _getScriptPropertyValue(
 		OUTLOOK_PROPERTY_KEYS.refreshToken,
 	);
 	if (!refreshToken) {
