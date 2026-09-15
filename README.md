@@ -10,13 +10,20 @@ Google Apps Script で Google カレンダーと Outlook カレンダーを双�
 - [outlookOauth2.gs](outlookOauth2.gs) - Outlook OAuth2 認証
 - [appsscript.json](appsscript.json) - GAS マニフェスト
 
-## 必要な Script Properties
+## Script Propertiesについて
+### 設定が必要な物
 
+※TENANT_IDは、組織のMicrosoftアカウントの場合は設定が必要なはずです。個人のMicrosoftアカウントでは設定は不要です。
 - `CLIENT_ID`
-- `TENANT_ID`
+- `TENANT_ID`（任意）
 - `OUTLOOK_CALENDAR_ID`
-- `REFRESH_TOKEN`
+- `AUTH_CODE`（setup関数を実行後に設定）
+
+
+### 自動で設定される物
 - `ACCESS_TOKEN`
+- `REFRESH_TOKEN`
+- `OUTLOOK_CODE_VERIFIER`
 
 `OUTLOOK_CALENDAR_ID` を設定した場合はそのカレンダーを使い、未設定なら Outlook の既定カレンダーを使います。
 
