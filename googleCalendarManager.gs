@@ -93,7 +93,7 @@ function normalizeGoogleCalendarEvent(event, parentCache) {
 
 	// recurring eventの親を取得
 	// 同じrecurringEventIdが複数来るので、キャッシュを使って親イベントを取得する
-	const parent = getGoogleRecurringEventParent(
+	const normalizedParent = getGoogleRecurringEventParent(
 		event.recurringEventId,
 		parentCache,
 	);
@@ -108,7 +108,7 @@ function normalizeGoogleCalendarEvent(event, parentCache) {
 	}
 
 	// 親イベントと比較して、このインスタンスで変更された項目だけを取得する
-	const diff = getGoogleEventDiff(parent, event);
+	const diff = getGoogleEventDiff(normalizedParent, normalizedEvent);
 
 	// 親と完全に同じなら通常の繰り返しイベントとして返し、exceptionは生成しない
 	if (Object.keys(diff).length === 0) {
@@ -208,10 +208,30 @@ function getGoogleRecurringEventParent(recurringEventId, parentCache) {
 	// recurringEventIdは親イベント自身のIDなので、そっから取得
 	const calendarId = CalendarApp.getDefaultCalendar().getId();
 	const parentEvent = Calendar.Events.get(calendarId, recurringEventId);
+	const startNormalized = normalizeGoogleDateTime(parentEvent.start);
+	const endNormalized = normalizeGoogleDateTime(parentEvent.end);
+	const parentNormalizedEvent = {
+		id: parentEvent.id,
+		subject: parentEvent.summary || '',
+		description: parentEvent.description || '',
+		location:
+			parentEvent.location ||
+			(parentEvent.location && parentEvent.location.displayName) ||
+			'',
+		isAllDay: Boolean(startNormalized.isAllDay && endNormalized.isAllDay),
+		timezone: SYNC_TIMEZONE,
+		start: startNormalized.dateTime,
+		end: endNormalized.dateTime,
+		showAs: mapTransparencyToShowAs(parentEvent.transparency),
+		sensitivity: mapVisibilityToSensitivity(parentEvent.visibility),
+		updatedAt: parentEvent.updated || null,
+		exception: null,
+		raw: parentEvent,
+	};
 
-	parentCache.set(recurringEventId, parentEvent);
+	parentCache.set(recurringEventId, parentNormalizedEvent);
 
-	return parentEvent;
+	return parentNormalizedEvent;
 }
 
 /**
@@ -222,20 +242,22 @@ function getGoogleRecurringEventParent(recurringEventId, parentCache) {
  * @returns {Object} 内部表現の削除された例外イベントオブジェクト
  */
 function createGoogleUpdatedOrDeletedException(event, type, { diff } = {}) {
-	let events;
+	let diffEventInfo;
 	if (type === 'updated') {
-		events = diff;
+		diffEventInfo = diff;
 	} else if (type === 'deleted') {
-		events = null;
+		diffEventInfo = null;
 	}
 
 	return {
-		originalStart: _convertTimeZone(event.originalStartTime, SYNC_TIMEZONE),
-		originalTimeZone: event.start.timeZone ?? SYNC_TIMEZONE,
+		originalStart: {
+			dateTime: _convertTimeZone(event.originalStartTime, SYNC_TIMEZONE),
+			timeZone: SYNC_TIMEZONE,
+		},
 		status: type,
 		id: event.id,
 		updatedAt: event.updated || null,
-		event: events,
+		event: diffEventInfo,
 	};
 }
 
@@ -249,10 +271,8 @@ function getGoogleEventDiff(parent, instance) {
 	const diff = {};
 
 	// Boolean型(isAllDay)の比較
-	const parentIsAllDay = Boolean(parent.start.date && !parent.start.dateTime);
-	const instanceIsAllDay = Boolean(
-		instance.start.date && !instance.start.dateTime,
-	);
+	const parentIsAllDay = parent.isAllDay;
+	const instanceIsAllDay = instance.isAllDay;
 
 	if (parentIsAllDay !== instanceIsAllDay) {
 		diff.isAllDay = instanceIsAllDay;
@@ -261,12 +281,15 @@ function getGoogleEventDiff(parent, instance) {
 	// 日付型(start,end)の比較
 	const compareDateParameters = ['start', 'end'];
 	compareDateParameters.forEach((param) => {
-		const parentDate = normalizeGoogleDateTime(parent[param]);
-		const instanceDate = normalizeGoogleDateTime(instance[param]);
+		const parentDate = parent[param];
+		const instanceDate = instance[param];
 
-		if (parentDate.dateTime !== instanceDate.dateTime) {
-			diff[param] = instanceDate;
-			diff[`${param}TimeZone`] = instance[param].timeZone ?? SYNC_TIMEZONE;
+		if (
+			(parentIsAllDay !== instanceIsAllDay || parentDate.dateTime) !==
+			instanceDate.dateTime
+		) {
+			diff[param] = instanceDate.dateTime;
+			diff['timeZone'] = SYNC_TIMEZONE; // normalizeした時点で、timeZoneはSYNC_TIMEZONEに統一されているので、ここでもSYNC_TIMEZONEを返す
 		}
 	});
 
@@ -277,6 +300,7 @@ function getGoogleEventDiff(parent, instance) {
 		'location',
 		'showAs',
 		'sensitivity',
+		'updatedAt',
 	];
 	compareStringParameters.forEach((param) => {
 		const parentValue = parent[param] ?? '';
